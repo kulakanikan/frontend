@@ -11,6 +11,8 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../src/utils/responsive";
+import { Colors, Type, Shadow, SharedStyles } from "../src/constants/theme";
 import { useFishStore } from "../src/store";
 import { FishStock, TransactionItem } from "../src/types";
 
@@ -29,6 +31,7 @@ export default function InputPembeliScreen() {
   const [sellPrice, setSellPrice] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"lunas" | "tempo">("lunas");
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   // Form validations
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -182,75 +185,78 @@ export default function InputPembeliScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#00072d" }}>
+    <SafeAreaView style={SharedStyles.screen}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingHorizontal: 16,
-            paddingVertical: 14,
-            backgroundColor: "#00072d",
-            borderBottomWidth: 1,
-            borderBottomColor: "rgba(255, 255, 255, 0.08)",
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={SharedStyles.header}>
+          <View style={SharedStyles.row}>
             <Pressable
               onPress={() => router.back()}
               style={({ pressed }) => ({
-                padding: 8,
-                borderRadius: 20,
-                backgroundColor: pressed ? "rgba(255, 255, 255, 0.1)" : "transparent",
-                marginRight: 8,
+                ...SharedStyles.backButton,
+                backgroundColor: pressed ? "rgba(0,0,0,0.05)" : "transparent",
               })}
             >
-              <Ionicons name="chevron-back" size={24} color="#ffffff" />
+              <Ionicons name="chevron-back" size={iconSize(24)} color={Colors.textPrimary} />
             </Pressable>
-            <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "bold" }}>
-              Input Transaksi Pembeli
-            </Text>
+            <Text style={Type.headerTitle}>Input Transaksi Pembeli</Text>
           </View>
           <Pressable
             onPress={handleSave}
             style={({ pressed }) => ({
-              backgroundColor: pressed ? "#15803d" : "#22c55e",
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 8,
+              ...SharedStyles.headerSaveButton,
+              backgroundColor: pressed ? Colors.successDark : Colors.success,
             })}
           >
-            <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
+            <Text style={{ color: Colors.textWhite, fontSize: rfs(13), fontWeight: "700" }}>
               Simpan
             </Text>
           </Pressable>
         </View>
 
         <ScrollView
-          style={{ flex: 1, backgroundColor: "#e5eaf7" }}
-          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+          style={SharedStyles.content}
+          contentContainerStyle={{ padding: spacing(16), paddingBottom: spacing(40) }}
           keyboardShouldPersistTaps="handled"
         >
           {/* Card Form */}
-          <View
-            style={{
-              backgroundColor: "#ffffff",
-              borderRadius: 20,
-              padding: 20,
-              borderWidth: 1.5,
-              borderColor: "#123499",
-              shadowColor: "#123499",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.05,
-              shadowRadius: 10,
-              elevation: 2,
-            }}
-          >
+          <View style={SharedStyles.formCard}>
+            {/* AI Assistant Voice Input */}
+            <Pressable
+              onPress={() => {
+                if (isListening) return;
+                setIsListening(true);
+                setTimeout(() => {
+                  setBuyerName("Resto Segara Indah");
+                  setFishName("Tuna Filet");
+                  setQuantity("15");
+                  setSellPrice("85000");
+                  setPaymentMethod("tempo");
+                  setIsListening(false);
+                }, 2000);
+              }}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: isListening ? "rgba(59, 130, 246, 0.2)" : (pressed ? "rgba(59, 130, 246, 0.15)" : "rgba(59, 130, 246, 0.08)"),
+                paddingVertical: spacing(14),
+                borderRadius: radius(12),
+                marginBottom: spacing(24),
+                borderWidth: 1.5,
+                borderColor: Colors.royalBlue,
+                borderStyle: isListening ? "solid" : "dashed",
+              })}
+            >
+              <Ionicons name={isListening ? "mic" : "mic-outline"} size={iconSize(20)} color={Colors.royalBlue} style={{ marginRight: spacing(8) }} />
+              <Text style={{ color: Colors.royalBlue, fontSize: rfs(14), fontWeight: "800" }}>
+                {isListening ? "Mendengarkan Suara..." : "Isi Otomatis via Suara (AI)"}
+              </Text>
+            </Pressable>
+
             {/* Buyer Name Input with Autocomplete Dropdown */}
             <View style={{ marginBottom: 16, zIndex: 10 }}>
               <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "600", marginBottom: 8 }}>

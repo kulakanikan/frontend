@@ -10,6 +10,8 @@ import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Colors } from "../constants/theme";
+import { wp, hp, spacing, fontSize as rfs } from "../utils/responsive";
 
 type TabRouteName = "index" | "transactions" | "tambah" | "stock" | "profile";
 
@@ -57,8 +59,8 @@ export default function CustomTabBar({
   const [showMenu, setShowMenu] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  const activeColor = "#eab308"; // Beautiful premium gold matching the logo branding
-  const inactiveColor = "rgba(255, 255, 255, 0.5)";
+  const activeColor = Colors.royalBlue;
+  const inactiveColor = Colors.textMuted;
 
   return (
     <View style={{ position: Platform.OS === "web" ? "fixed" : "absolute", bottom: 0, left: 0, right: 0, zIndex: 9999 }} pointerEvents="box-none">
@@ -67,11 +69,11 @@ export default function CustomTabBar({
           flexDirection: "row",
           alignItems: "stretch",
           justifyContent: "space-around",
-          backgroundColor: "#00072d", // Harmonized dark navy color
+          backgroundColor: "#ffffff",
           borderTopWidth: 1,
-          borderTopColor: "rgba(255, 255, 255, 0.08)",
+          borderTopColor: Colors.divider,
           paddingBottom: Math.max(insets.bottom, 6),
-          height: 60 + Math.max(insets.bottom, 6), // Enlarged spacious navbar
+          height: hp(60) + Math.max(insets.bottom, 6),
           ...Platform.select({
             ios: {
               shadowColor: "#000",
@@ -161,14 +163,12 @@ export default function CustomTabBar({
                     <View style={{ alignItems: "center", justifyContent: "center" }}>
                       <View
                         style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 20,
+                          width: wp(40),
+                          height: wp(40),
+                          borderRadius: wp(20),
                           alignItems: "center",
                           justifyContent: "center",
-                          backgroundColor: isItemHighlighted ? activeColor : "rgba(255, 255, 255, 0.12)",
-                          borderWidth: 1.5,
-                          borderColor: "rgba(255, 255, 255, 0.08)",
+                          backgroundColor: Colors.royalBlue,
                           marginBottom: 2,
                           ...Platform.select({
                             ios: {
@@ -190,11 +190,11 @@ export default function CustomTabBar({
                       >
                         <Ionicons
                           name="add"
-                          size={24}
-                          color={isItemHighlighted ? "#00072d" : "#ffffff"}
+                          size={wp(24)}
+                          color={isItemHighlighted ? Colors.navy : Colors.textWhite}
                         />
                       </View>
-                      <Text style={{ color: isItemHighlighted ? activeColor : inactiveColor, fontSize: 10, fontWeight: "600" }}>
+                      <Text style={{ color: isItemHighlighted ? activeColor : inactiveColor, fontSize: rfs(10), fontWeight: "600" }}>
                         {config.label}
                       </Text>
                     </View>
@@ -202,13 +202,13 @@ export default function CustomTabBar({
                     <View style={{ alignItems: "center", justifyContent: "center" }}>
                       <Ionicons
                         name={isItemHighlighted ? config.iconFilled : config.iconOutline}
-                        size={22}
+                        size={wp(22)}
                         color={isItemHighlighted ? activeColor : inactiveColor}
                         style={{
                           opacity: isItemHighlighted ? 1 : 0.8,
                         }}
                       />
-                      <Text style={{ color: isItemHighlighted ? activeColor : inactiveColor, fontSize: 10, fontWeight: "600", marginTop: 4 }}>
+                      <Text style={{ color: isItemHighlighted ? activeColor : inactiveColor, fontSize: rfs(10), fontWeight: "600", marginTop: 4 }}>
                         {config.label}
                       </Text>
                     </View>
@@ -235,13 +235,13 @@ export default function CustomTabBar({
           ><View
               style={{
                 position: "absolute",
-                bottom: 66 + Math.max(insets.bottom, 6), // Align exactly above the newly enlarged tab bar
-                width: 210,
-                backgroundColor: "#0F1A30",
-                borderRadius: 16,
+                bottom: hp(66) + Math.max(insets.bottom, 6),
+                width: wp(210),
+                backgroundColor: Colors.navyLight,
+                borderRadius: wp(16),
                 borderWidth: 1.5,
-                borderColor: "rgba(255, 255, 255, 0.16)",
-                paddingVertical: 6,
+                borderColor: Colors.headerBorder,
+                paddingVertical: spacing(6),
                 ...Platform.select({
                   ios: {
                     shadowColor: "#000",
@@ -269,15 +269,15 @@ export default function CustomTabBar({
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
-                      paddingVertical: 14,
-                      paddingHorizontal: 18,
-                      backgroundColor: pressed ? "rgba(255, 255, 255, 0.08)" : "transparent",
+                      paddingVertical: spacing(14),
+                      paddingHorizontal: spacing(18),
+                      backgroundColor: pressed ? Colors.headerBorder : "transparent",
                       borderBottomWidth: 1,
-                      borderBottomColor: "rgba(255, 255, 255, 0.08)",
+                      borderBottomColor: Colors.headerBorder,
                     }}
                   >
-                    <Ionicons name="cube-outline" size={18} color="#ffffff" style={{ marginRight: 12 }} />
-                    <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "600" }}>
+                    <Ionicons name="cube-outline" size={wp(18)} color={Colors.textWhite} style={{ marginRight: spacing(12) }} />
+                    <Text style={{ color: Colors.textWhite, fontSize: rfs(14), fontWeight: "600" }}>
                       Input Barang
                     </Text>
                   </View>
@@ -295,13 +295,13 @@ export default function CustomTabBar({
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
-                      paddingVertical: 14,
-                      paddingHorizontal: 18,
-                      backgroundColor: pressed ? "rgba(255, 255, 255, 0.08)" : "transparent",
+                      paddingVertical: spacing(14),
+                      paddingHorizontal: spacing(18),
+                      backgroundColor: pressed ? Colors.headerBorder : "transparent",
                     }}
                   >
-                    <Ionicons name="person-outline" size={18} color="#ffffff" style={{ marginRight: 12 }} />
-                    <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "600" }}>
+                    <Ionicons name="person-outline" size={wp(18)} color={Colors.textWhite} style={{ marginRight: spacing(12) }} />
+                    <Text style={{ color: Colors.textWhite, fontSize: rfs(14), fontWeight: "600" }}>
                       Input Pembeli
                     </Text>
                   </View>

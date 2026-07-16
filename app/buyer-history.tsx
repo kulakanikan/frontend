@@ -15,6 +15,8 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { useFishStore } from "../src/store";
 import { Transaction, TransactionItem } from "../src/types";
+import { Colors, Type, Shadow, SharedStyles } from "../src/constants/theme";
+import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../src/utils/responsive";
 
 export default function BuyerHistoryScreen() {
   const router = useRouter();
@@ -294,68 +296,53 @@ export default function BuyerHistoryScreen() {
     }
   };
 
+  // Filter transactions by selected buyer
+  const filteredTransactions = transactions.filter(
+    (tx) => (tx.customer_name || "Pembeli Umum") === selectedBuyer
+  );
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#00072d" }}>
+    <SafeAreaView style={SharedStyles.screen}>
       {/* Header */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-          backgroundColor: "#00072d",
-          borderBottomWidth: 1,
-          borderBottomColor: "rgba(255, 255, 255, 0.08)",
-        }}
-      >
+      <View style={SharedStyles.header}>
         <Pressable
           onPress={() => router.back()}
           style={({ pressed }) => ({
-            padding: 8,
-            borderRadius: 20,
-            backgroundColor: pressed ? "rgba(255, 255, 255, 0.1)" : "transparent",
-            marginRight: 8,
+            ...SharedStyles.backButton,
+            backgroundColor: pressed ? "rgba(0,0,0,0.05)" : "transparent",
           })}
         >
-          <Ionicons name="chevron-back" size={24} color="#ffffff" />
+          <Ionicons name="chevron-back" size={iconSize(24)} color={Colors.textPrimary} />
         </Pressable>
-        <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "bold" }}>
-          Riwayat Nota Pembeli
-        </Text>
+        <Text style={Type.headerTitle}>Riwayat Nota Pembeli</Text>
       </View>
 
       {/* Main Container */}
-      <View style={{ flex: 1, backgroundColor: "#e5eaf7", padding: 16 }}>
+      <View style={{ flex: 1, backgroundColor: Colors.background, padding: spacing(16) }}>
         {/* Search Bar */}
         <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            backgroundColor: "#ffffff",
-            borderRadius: 12,
-            paddingHorizontal: 14,
-            height: 46,
+          style={[SharedStyles.row, {
+            backgroundColor: Colors.card,
+            borderRadius: radius(12),
+            paddingHorizontal: spacing(14),
+            height: hp(46),
             borderWidth: 1.2,
-            borderColor: "rgba(18, 52, 153, 0.25)",
-            marginBottom: 16,
-            shadowColor: "#123499",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.04,
-            shadowRadius: 8,
-            elevation: 2,
-          }}
+            borderColor: Colors.royalBlueMuted,
+            marginBottom: spacing(16),
+            ...Shadow.card,
+          }]}
         >
-          <Ionicons name="search-outline" size={18} color="#64748b" style={{ marginRight: 10 }} />
+          <Ionicons name="search-outline" size={iconSize(18)} color={Colors.textMuted} style={{ marginRight: spacing(10) }} />
           <TextInput
-            style={{ flex: 1, fontSize: 14, color: "#00072d" }}
+            style={{ flex: 1, fontSize: rfs(14), color: Colors.textPrimary }}
             placeholder="Cari nama pembeli..."
-            placeholderTextColor="#64748b"
+            placeholderTextColor={Colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <Pressable onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={18} color="#64748b" />
+              <Ionicons name="close-circle" size={iconSize(18)} color={Colors.textMuted} />
             </Pressable>
           )}
         </View>
@@ -364,22 +351,13 @@ export default function BuyerHistoryScreen() {
         {selectedBuyer === null ? (
           // === LIST OF BUYERS VIEW ===
           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-            <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "bold", marginBottom: 12 }}>
+            <Text style={SharedStyles.sectionTitle}>
               Daftar Pelanggan Terdaftar
             </Text>
             {buyersList.length === 0 ? (
-              <View
-                style={{
-                  backgroundColor: "#ffffff",
-                  padding: 40,
-                  borderRadius: 20,
-                  alignItems: "center",
-                  borderWidth: 1.2,
-                  borderColor: "rgba(18, 52, 153, 0.25)",
-                }}
-              >
-                <Ionicons name="people-outline" size={48} color="#64748b" style={{ marginBottom: 12 }} />
-                <Text style={{ color: "#64748b", fontSize: 14, textAlign: "center" }}>
+              <View style={SharedStyles.emptyState}>
+                <Ionicons name="people-outline" size={iconSize(48)} color={Colors.textMuted} style={{ marginBottom: spacing(12) }} />
+                <Text style={{ ...Type.bodySmall, textAlign: "center" }}>
                   Tidak ada pelanggan yang cocok dengan pencarian.
                 </Text>
               </View>
@@ -388,39 +366,40 @@ export default function BuyerHistoryScreen() {
                 <Pressable
                   key={buyer.name}
                   onPress={() => setSelectedBuyer(buyer.name)}
-                  style={({ pressed }) => ({
-                    backgroundColor: pressed ? "#f8fafc" : "#ffffff",
-                    borderRadius: 16,
-                    padding: 16,
-                    marginBottom: 12,
-                    borderWidth: 1.2,
-                    borderColor: "rgba(18, 52, 153, 0.25)",
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    shadowColor: "#123499",
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.04,
-                    shadowRadius: 8,
-                    elevation: 2,
-                  })}
+                  style={({ pressed }) => [
+                    SharedStyles.card,
+                    {
+                      padding: spacing(14),
+                      marginBottom: spacing(10),
+                      backgroundColor: pressed ? Colors.cardPressed : Colors.card,
+                    },
+                  ]}
                 >
-                  <View style={{ flex: 1, marginRight: 12 }}>
-                    <Text style={{ color: "#00072d", fontSize: 16, fontWeight: "bold" }}>
-                      {buyer.name}
-                    </Text>
-                    <Text style={{ color: "#64748b", fontSize: 12, marginTop: 4 }}>
-                      {buyer.transactions.length} Transaksi Belanja
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ color: "#123499", fontSize: 14, fontWeight: "bold" }}>
-                      Rp {buyer.totalSpent.toLocaleString()}
-                    </Text>
-                    <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
-                      <Text style={{ color: "#123499", fontSize: 11, fontWeight: "600", marginRight: 2 }}>Detail</Text>
-                      <Ionicons name="chevron-forward" size={12} color="#123499" />
+                  <View style={[SharedStyles.row, { justifyContent: "space-between" }]}>
+                    <View style={[SharedStyles.row, { flex: 1 }]}>
+                      <View
+                        style={{
+                          width: wp(40),
+                          height: wp(40),
+                          borderRadius: wp(20),
+                          backgroundColor: Colors.royalBlueMuted,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginRight: spacing(12),
+                        }}
+                      >
+                        <Text style={{ color: Colors.royalBlue, fontSize: rfs(16), fontWeight: "bold" }}>
+                          {buyer.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View>
+                        <Text style={Type.body}>{buyer.name}</Text>
+                        <Text style={{ ...Type.caption, marginTop: 2 }}>
+                          {buyer.transactions.length} Transaksi (Total Rp {buyer.totalSpent.toLocaleString()})
+                        </Text>
+                      </View>
                     </View>
+                    <Ionicons name="chevron-forward" size={iconSize(20)} color={Colors.textMuted} />
                   </View>
                 </Pressable>
               ))
@@ -429,70 +408,41 @@ export default function BuyerHistoryScreen() {
         ) : (
           // === SINGLE BUYER PURCHASE HISTORY DETAIL VIEW ===
           <View style={{ flex: 1 }}>
-            {/* Back to list button */}
+            {/* Back button to buyers list */}
             <Pressable
               onPress={() => setSelectedBuyer(null)}
-              style={{
+              style={({ pressed }) => ({
                 flexDirection: "row",
                 alignItems: "center",
-                marginBottom: 14,
-                backgroundColor: "rgba(18, 52, 153, 0.08)",
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-                borderRadius: 8,
-                alignSelf: "flex-start",
-              }}
+                paddingVertical: spacing(8),
+                marginBottom: spacing(12),
+                opacity: pressed ? 0.7 : 1,
+              })}
             >
-              <Ionicons name="arrow-back" size={14} color="#123499" style={{ marginRight: 6 }} />
-              <Text style={{ color: "#123499", fontSize: 12, fontWeight: "bold" }}>
+              <Ionicons name="arrow-back" size={iconSize(16)} color={Colors.royalBlue} />
+              <Text style={{ color: Colors.royalBlue, fontSize: rfs(14), fontWeight: "bold", marginLeft: spacing(6) }}>
                 Kembali ke Daftar Pelanggan
               </Text>
             </Pressable>
 
             {/* Buyer Title Info Header */}
-            <View
-              style={{
-                backgroundColor: "#ffffff",
-                padding: 16,
-                borderRadius: 16,
-                borderWidth: 1.2,
-                borderColor: "rgba(18, 52, 153, 0.25)",
-                marginBottom: 16,
-              }}
-            >
-              <Text style={{ color: "#64748b", fontSize: 12 }}>Pelanggan</Text>
-              <Text style={{ color: "#00072d", fontSize: 20, fontWeight: "bold", marginTop: 2 }}>
-                {selectedBuyer}
+            <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(16) }]}>
+              <Text style={SharedStyles.sectionTitle}>
+                Riwayat: {selectedBuyer}
               </Text>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 12, borderTopWidth: 1, borderTopColor: "#e5eaf7", paddingTop: 10 }}>
-                <Text style={{ color: "#64748b", fontSize: 12 }}>Total Belanja:</Text>
-                <Text style={{ color: "#123499", fontSize: 14, fontWeight: "bold" }}>
-                  Rp {buyersMap[selectedBuyer]?.totalSpent.toLocaleString() || 0}
+              <View style={[SharedStyles.badgePaid, { backgroundColor: Colors.royalBlueMuted }]}>
+                <Text style={{ color: Colors.royalBlue, fontSize: rfs(10), fontWeight: "700" }}>
+                  {filteredTransactions.length} Transaksi
                 </Text>
               </View>
             </View>
 
             {/* History of Invoices */}
-            <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "bold", marginBottom: 12 }}>
-              Daftar Nota Belanja
-            </Text>
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-              {buyersMap[selectedBuyer]?.transactions.map((tx) => (
+              {filteredTransactions.map((tx) => (
                 <View
                   key={tx.id}
-                  style={{
-                    backgroundColor: "#ffffff",
-                    borderRadius: 16,
-                    padding: 16,
-                    marginBottom: 12,
-                    borderWidth: 1.2,
-                    borderColor: "rgba(18, 52, 153, 0.25)",
-                    shadowColor: "#123499",
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.04,
-                    shadowRadius: 8,
-                    elevation: 2,
-                  }}
+                  style={[SharedStyles.card, { padding: spacing(16), marginBottom: spacing(12) }]}
                 >
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <View>
@@ -503,19 +453,13 @@ export default function BuyerHistoryScreen() {
                         {new Date(tx.created_at).toLocaleDateString("id-ID")}
                       </Text>
                     </View>
-                    <View
-                      style={{
-                        backgroundColor: tx.payment_status === "paid" ? "rgba(34, 197, 94, 0.12)" : "rgba(239, 68, 68, 0.12)",
-                        paddingHorizontal: 8,
-                        paddingVertical: 4,
-                        borderRadius: 6,
-                      }}
-                    >
+                    <View style={tx.payment_status === "paid" ? SharedStyles.badgePaid : SharedStyles.badgeUnpaid}>
                       <Text
                         style={{
-                          color: tx.payment_status === "paid" ? "#22c55e" : "#ef4444",
-                          fontSize: 9,
+                          color: tx.payment_status === "paid" ? Colors.success : Colors.danger,
+                          fontSize: rfs(9),
                           fontWeight: "bold",
+                          textTransform: "uppercase",
                         }}
                       >
                         {tx.payment_status === "paid" ? "Lunas" : "Tempo"}
@@ -524,44 +468,41 @@ export default function BuyerHistoryScreen() {
                   </View>
 
                   {/* Items display */}
-                  <View style={{ backgroundColor: "#f8fafc", padding: 10, borderRadius: 10, marginBottom: 12 }}>
+                  <View style={SharedStyles.infoRow}>
                     {tx.items.map((i) => (
-                      <View key={i.id} style={{ flexDirection: "row", justifyContent: "space-between", marginVertical: 2 }}>
-                        <Text style={{ color: "#051650", fontSize: 12, flex: 1, marginRight: 8 }} numberOfLines={1}>
+                      <View key={i.id} style={[SharedStyles.row, { justifyContent: "space-between", marginVertical: spacing(2) }]}>
+                        <Text style={{ ...Type.bodySmall, color: Colors.navyLight, flex: 1, marginRight: spacing(8) }} numberOfLines={1}>
                           {i.fish_name} ({i.quantity} Kg)
                         </Text>
-                        <Text style={{ color: "#64748b", fontSize: 12 }}>
+                        <Text style={Type.bodySmall}>
                           Rp {i.subtotal.toLocaleString()}
                         </Text>
                       </View>
                     ))}
-                    <View style={{ borderTopWidth: 1, borderTopColor: "#e5eaf7", marginTop: 8, paddingTop: 6, flexDirection: "row", justifyContent: "space-between" }}>
-                      <Text style={{ color: "#00072d", fontSize: 12, fontWeight: "bold" }}>Total:</Text>
-                      <Text style={{ color: "#123499", fontSize: 13, fontWeight: "bold" }}>
+                    <View style={[SharedStyles.row, { justifyContent: "space-between", borderTopWidth: 1, borderTopColor: Colors.divider, marginTop: spacing(8), paddingTop: spacing(6) }]}>
+                      <Text style={Type.caption}>Total:</Text>
+                      <Text style={Type.statSmall}>
                         Rp {tx.total_amount.toLocaleString()}
                       </Text>
                     </View>
                   </View>
                   {/* Action buttons side-by-side */}
-                  <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={[SharedStyles.row, { gap: spacing(10), marginTop: spacing(12) }]}>
                     <Pressable
                       onPress={() => handlePrint(tx)}
                       disabled={isGenerating}
-                      style={({ pressed }) => ({
-                        flex: 1,
-                        flexDirection: "row",
-                        backgroundColor: pressed ? "rgba(18, 52, 153, 0.08)" : "#ffffff",
-                        borderWidth: 1.2,
-                        borderColor: "#123499",
-                        height: 44,
-                        borderRadius: 12,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        opacity: isGenerating ? 0.7 : 1,
-                      })}
+                      style={({ pressed }) => [
+                        SharedStyles.outlineButton,
+                        {
+                          flex: 1,
+                          flexDirection: "row",
+                          backgroundColor: pressed ? Colors.cardPressed : Colors.card,
+                          opacity: isGenerating ? 0.7 : 1,
+                        },
+                      ]}
                     >
-                      <Ionicons name="print-outline" size={16} color="#123499" style={{ marginRight: 6 }} />
-                      <Text style={{ color: "#123499", fontSize: 13, fontWeight: "bold" }}>
+                      <Ionicons name="print-outline" size={iconSize(16)} color={Colors.royalBlue} style={{ marginRight: spacing(6) }} />
+                      <Text style={{ color: Colors.royalBlue, fontSize: rfs(13), fontWeight: "bold" }}>
                         Cetak Nota
                       </Text>
                     </Pressable>
@@ -569,24 +510,18 @@ export default function BuyerHistoryScreen() {
                     <Pressable
                       onPress={() => handleDownloadPDF(tx)}
                       disabled={isGenerating}
-                      style={({ pressed }) => ({
-                        flex: 1,
-                        flexDirection: "row",
-                        backgroundColor: pressed ? "#15803d" : "#22c55e",
-                        height: 44,
-                        borderRadius: 12,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        opacity: isGenerating ? 0.7 : 1,
-                        shadowColor: "#22c55e",
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.15,
-                        shadowRadius: 6,
-                        elevation: 2,
-                      })}
+                      style={({ pressed }) => [
+                        SharedStyles.primaryButton,
+                        {
+                          flex: 1,
+                          flexDirection: "row",
+                          backgroundColor: pressed ? Colors.successDark : Colors.success,
+                          opacity: isGenerating ? 0.7 : 1,
+                        },
+                      ]}
                     >
-                      <Ionicons name="download-outline" size={16} color="#ffffff" style={{ marginRight: 6 }} />
-                      <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
+                      <Ionicons name="download-outline" size={iconSize(16)} color={Colors.textWhite} style={{ marginRight: spacing(6) }} />
+                      <Text style={{ color: Colors.textWhite, fontSize: rfs(13), fontWeight: "bold" }}>
                         Unduh PDF
                       </Text>
                     </Pressable>

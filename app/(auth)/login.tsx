@@ -10,13 +10,19 @@ import {
   Platform,
   Easing,
   FlatList,
+  useWindowDimensions,
+  PanResponder,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import Svg, { Path, Circle, G, Defs, ClipPath } from "react-native-svg";
+import { wp, hp, ms, fontSize as rfs, spacing, screenWidth, screenHeight } from "../../src/utils/responsive";
+import FishLogo from "../../src/components/FishLogo";
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
-const BOTTOM_SHEET_HEIGHT = SCREEN_HEIGHT * 0.42;
+// Dynamic — always fresh
+const getSW = () => Dimensions.get("window").width;
+const getSH = () => Dimensions.get("window").height;
+const BOTTOM_SHEET_HEIGHT = getSH() * 0.42;
 
 const ONBOARDING_DATA = [
   {
@@ -95,6 +101,7 @@ const AnimatedWave = () => {
     outputRange: [0, -6],
   });
 
+  const waveW = Math.max(getSW() * 3.7, 1440);
   const wavePath =
     "M0,50 Q180,20 360,50 T720,50 T1080,50 T1440,50 L1440,100 L0,100 Z";
 
@@ -186,7 +193,7 @@ const AnimatedBubble = ({ size, left, duration }: any) => {
 
   const translateY = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [100, -SCREEN_HEIGHT * 0.7],
+    outputRange: [100, -getSH() * 0.7],
   });
 
   const translateX = anim.interpolate({
@@ -400,8 +407,8 @@ const SmallSwimmingFish = ({
     inputRange: [0, 1],
     outputRange:
       direction === "left"
-        ? [SCREEN_WIDTH + 150, -150]
-        : [-150, SCREEN_WIDTH + 150],
+        ? [getSW() + 150, -150]
+        : [-150, getSW() + 150],
   });
 
   // Large vertical wandering range so they go down and sideways
@@ -432,15 +439,20 @@ const SmallSwimmingFish = ({
 };
 
 export default function LoginScreen() {
+  const { width: W, height: H } = useWindowDimensions();
   const [sheetVisible, setSheetVisible] = useState(false);
   const [onboardingVisible, setOnboardingVisible] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const sheetTranslateY = useRef(new Animated.Value(BOTTOM_SHEET_HEIGHT)).current;
+  const bsHeight = H * 0.42;
+  const sheetTranslateY = useRef(new Animated.Value(bsHeight)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const onboardingOpacity = useRef(new Animated.Value(1)).current;
   const scrollX = useRef(new Animated.Value(0)).current;
   const slidesRef = useRef<FlatList>(null);
+
+  // Responsive SVG scale factor
+  const fishScale = Math.min(W / 390, 1.15);
 
   const viewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems[0]) {
@@ -469,7 +481,7 @@ export default function LoginScreen() {
   const hideSheet = useCallback(() => {
     Animated.parallel([
       Animated.spring(sheetTranslateY, {
-        toValue: BOTTOM_SHEET_HEIGHT,
+        toValue: bsHeight,
         friction: 8,
         tension: 50,
         useNativeDriver: true,
@@ -482,7 +494,7 @@ export default function LoginScreen() {
     ]).start(() => {
       setSheetVisible(false);
     });
-  }, []);
+  }, [bsHeight]);
 
   const finishOnboarding = useCallback(() => {
     Animated.timing(onboardingOpacity, {
@@ -510,17 +522,74 @@ export default function LoginScreen() {
     }, 400);
   }, [hideSheet]);
 
+  // Bring onboarding back
+  const showOnboarding = useCallback(() => {
+    hideSheet();
+    setTimeout(() => {
+      setCurrentIndex(0);
+      slidesRef.current?.scrollToIndex({ index: 0, animated: false });
+      scrollX.setValue(0);
+      onboardingOpacity.setValue(0);
+      setOnboardingVisible(true);
+      Animated.timing(onboardingOpacity, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+      }).start();
+    }, 350);
+  }, [hideSheet, onboardingOpacity, scrollX]);
+
+  // Detect swipe down on the ocean to re-show onboarding
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gs) => gs.dy > 10 && Math.abs(gs.dy) > Math.abs(gs.dx) * 1.5,
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy > 80 && !onboardingVisible) showOnboarding();
+      },
+    })
+  ).current;
+
+  // Drag the bottom sheet down to dismiss & re-show onboarding
+  const sheetPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gs) => gs.dy > 5,
+      onPanResponderMove: (_, gs) => {
+        if (gs.dy > 0) {
+          sheetTranslateY.setValue(gs.dy);
+        }
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy > 80) {
+          // Dragged enough — dismiss & show onboarding
+          showOnboarding();
+        } else {
+          // Snap back
+          Animated.spring(sheetTranslateY, {
+            toValue: 0,
+            friction: 9,
+            tension: 45,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
 
       {/* Top Section */}
-      <View style={styles.topSection} />
+      <View style={styles.topSection}>
+        <FishLogo width={130} height={130} color="#00072d" />
+      </View>
 
       <AnimatedWave />
 
-      {/* Bottom Ocean Section */}
-      <View style={styles.oceanSection}>
+      {/* Bottom Ocean Section — swipe down to re-show onboarding */}
+      <View style={styles.oceanSection} {...panResponder.panHandlers}>
         {/* Animated Bubbles */}
         <AnimatedBubble size={16} left="15%" delay={0} duration={6000} />
         <AnimatedBubble size={24} left="35%" delay={2000} duration={8500} />
@@ -539,8 +608,8 @@ export default function LoginScreen() {
         {/* Main Fishes Container */}
         <View style={styles.fishesContainer}>
           {/* Fish 1 - Striped Oval (Faces Right) */}
-          <AnimatedFish direction="right" delay={0} duration={5000} style={{ alignSelf: "center", marginBottom: 25 }}>
-            <Svg width={240} height={70} viewBox="0 0 240 70">
+          <AnimatedFish direction="right" delay={0} duration={5000} style={{ alignSelf: "center", marginBottom: hp(20) }}>
+            <Svg width={240 * fishScale} height={70 * fishScale} viewBox="0 0 240 70">
               <Defs>
                 <ClipPath id="bodyClip1">
                   <Path d="M40,35 C70,-5 190,-5 220,35 C190,75 70,75 40,35 Z" />
@@ -556,8 +625,8 @@ export default function LoginScreen() {
           </AnimatedFish>
 
           {/* Fish 2 - Split Color (Faces Left) */}
-          <AnimatedFish direction="left" delay={800} duration={6000} style={{ alignSelf: "center", marginLeft: 30, marginBottom: 25 }}>
-            <Svg width={240} height={80} viewBox="0 0 240 80">
+          <AnimatedFish direction="left" delay={800} duration={6000} style={{ alignSelf: "center", marginLeft: wp(25), marginBottom: hp(20) }}>
+            <Svg width={240 * fishScale} height={80 * fishScale} viewBox="0 0 240 80">
               <Path d="M190,40 L220,15 C210,40 210,40 220,65 Z" fill="#00072d" />
               <Path d="M30,40 C70,80 160,80 190,40 Z" fill="#ffffff" />
               <Path d="M30,40 C70,0 160,0 190,40 Z" fill="#00072d" />
@@ -567,8 +636,8 @@ export default function LoginScreen() {
           </AnimatedFish>
 
           {/* Fish 3 - Shark (Faces Right) */}
-          <AnimatedFish direction="right" delay={400} duration={5500} style={{ alignSelf: "center", marginRight: 20, marginBottom: 25 }}>
-            <Svg width={240} height={90} viewBox="0 0 240 90">
+          <AnimatedFish direction="right" delay={400} duration={5500} style={{ alignSelf: "center", marginRight: wp(16), marginBottom: hp(20) }}>
+            <Svg width={240 * fishScale} height={90 * fishScale} viewBox="0 0 240 90">
               <Path d="M40,45 L5,5 L25,45 Z" fill="#00072d" />
               <Path d="M40,45 L5,85 L25,45 Z" fill="#ffffff" />
               {/* Top Fin pointing Left */}
@@ -582,8 +651,8 @@ export default function LoginScreen() {
           </AnimatedFish>
 
           {/* Fish 4 - Small Stripe (Faces Left) */}
-          <AnimatedFish direction="left" delay={1200} duration={4800} style={{ alignSelf: "center", marginLeft: -20 }}>
-            <Svg width={220} height={60} viewBox="0 0 240 60">
+          <AnimatedFish direction="left" delay={1200} duration={4800} style={{ alignSelf: "center", marginLeft: wp(-16) }}>
+            <Svg width={220 * fishScale} height={60 * fishScale} viewBox="0 0 240 60">
               <Defs>
                 <ClipPath id="bodyClip4">
                   <Path d="M20,30 C60,-5 160,-5 200,30 C160,65 60,65 20,30 Z" />
@@ -605,16 +674,16 @@ export default function LoginScreen() {
 
       {/* Onboarding Text Overlay (Floating on top of ocean) */}
       {onboardingVisible && (
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: onboardingOpacity, zIndex: 50, pointerEvents: "box-none" }]}>
-          <View style={{ flex: 1, pointerEvents: "none" }} />
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: onboardingOpacity, zIndex: 50, justifyContent: "flex-end", backgroundColor: "rgba(5, 22, 80, 0.85)" }]}>
           
-          <View style={{ height: 280, paddingBottom: 30 }}>
+          <View style={{ paddingBottom: H * 0.05, paddingTop: H * 0.02 }}>
             <FlatList
+              style={{ height: H * 0.22 }}
               data={ONBOARDING_DATA}
               renderItem={({ item }) => (
-                <View style={styles.slide}>
-                  <Text style={styles.slideTitle}>{item.title}</Text>
-                  <Text style={styles.slideDesc}>{item.description}</Text>
+                <View style={[styles.slide, { width: W }]}>
+                  <Text style={[styles.slideTitle, { fontSize: rfs(26) }]}>{item.title}</Text>
+                  <Text style={[styles.slideDesc, { fontSize: rfs(14) }]}>{item.description}</Text>
                 </View>
               )}
               horizontal
@@ -629,8 +698,8 @@ export default function LoginScreen() {
               onViewableItemsChanged={viewableItemsChanged}
               viewabilityConfig={viewConfig}
               getItemLayout={(data, index) => ({
-                length: SCREEN_WIDTH,
-                offset: SCREEN_WIDTH * index,
+                length: W,
+                offset: W * index,
                 index,
               })}
               ref={slidesRef}
@@ -639,7 +708,7 @@ export default function LoginScreen() {
             {/* Paginator */}
             <View style={styles.paginatorContainer}>
               {ONBOARDING_DATA.map((_, i) => {
-                const inputRange = [(i - 1) * SCREEN_WIDTH, i * SCREEN_WIDTH, (i + 1) * SCREEN_WIDTH];
+                const inputRange = [(i - 1) * W, i * W, (i + 1) * W];
                 const dotWidth = scrollX.interpolate({
                   inputRange,
                   outputRange: [10, 28, 10],
@@ -655,7 +724,7 @@ export default function LoginScreen() {
             </View>
 
             {/* Action Button */}
-            <View style={{ paddingHorizontal: 30 }}>
+            <View style={{ paddingHorizontal: wp(28) }}>
               <Pressable
                 style={({ pressed }) => [
                   styles.getStartedButton,
@@ -675,11 +744,11 @@ export default function LoginScreen() {
       {/* Bottom Sheet Overlay */}
       {sheetVisible && (
         <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
-          <Pressable style={styles.overlayTouchable} onPress={hideSheet} />
+          <Pressable style={styles.overlayTouchable} onPress={showOnboarding} />
         </Animated.View>
       )}
 
-      {/* Bottom Sheet - Auth Options */}
+      {/* Bottom Sheet - Auth Options (draggable handle) */}
       {sheetVisible && (
         <Animated.View
           style={[
@@ -687,7 +756,7 @@ export default function LoginScreen() {
             { transform: [{ translateY: sheetTranslateY }] },
           ]}
         >
-        <View style={styles.sheetHandle}>
+        <View style={styles.sheetHandle} {...sheetPanResponder.panHandlers}>
           <View style={styles.handleBar} />
         </View>
 
@@ -734,8 +803,8 @@ const styles = StyleSheet.create({
   },
   topSection: {
     backgroundColor: "#ffffff",
-    paddingTop: Platform.OS === "ios" ? 70 : 60,
-    paddingBottom: 20,
+    paddingTop: Platform.OS === "ios" ? hp(60) : hp(50),
+    paddingBottom: hp(16),
     alignItems: "center",
     justifyContent: "center",
   },
@@ -755,8 +824,8 @@ const styles = StyleSheet.create({
   },
   fishesContainer: {
     width: "100%",
-    paddingHorizontal: 20,
-    marginTop: 35,
+    paddingHorizontal: wp(16),
+    marginTop: hp(25),
     justifyContent: "center",
   },
   bottomContainer: {
@@ -799,7 +868,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: BOTTOM_SHEET_HEIGHT,
+    height: getSH() * 0.42,
     backgroundColor: "#ffffff",
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
@@ -812,8 +881,9 @@ const styles = StyleSheet.create({
   },
   sheetHandle: {
     alignItems: "center",
-    paddingTop: 14,
-    paddingBottom: 4,
+    paddingTop: 16,
+    paddingBottom: 12,
+    width: "100%",
   },
   handleBar: {
     width: 42,
@@ -909,9 +979,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   slide: {
-    width: SCREEN_WIDTH,
+    width: getSW(),
     alignItems: "center",
-    paddingHorizontal: 30,
+    paddingHorizontal: wp(28),
     justifyContent: "center",
   },
   slideTitle: {
