@@ -28,6 +28,12 @@ export interface FishType {
   image_url?: string;
 }
 
+export interface AddOn {
+  id: string;
+  name: string;
+  price: number;
+}
+
 export interface FishStock {
   id: string;
   fish_type: FishType;
@@ -38,6 +44,7 @@ export interface FishStock {
   batch_date: string;
   expiry_date?: string;
   notes?: string;
+  addons?: AddOn[];
 }
 
 // === Transaction Types ===
@@ -62,6 +69,7 @@ export interface TransactionItem {
   quantity: number;
   unit_price: number;
   subtotal: number;
+  stock_not_found?: boolean;
 }
 
 // === Customer & Supplier Types ===

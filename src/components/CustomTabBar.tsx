@@ -57,8 +57,8 @@ export default function CustomTabBar({
   const [showMenu, setShowMenu] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  const activeColor = "#1199D6";
-  const inactiveColor = "#64748b";
+  const activeColor = "#eab308"; // Beautiful premium gold matching the logo branding
+  const inactiveColor = "rgba(255, 255, 255, 0.5)";
 
   return (
     <View style={{ position: Platform.OS === "web" ? "fixed" : "absolute", bottom: 0, left: 0, right: 0, zIndex: 9999 }} pointerEvents="box-none">
@@ -67,23 +67,23 @@ export default function CustomTabBar({
           flexDirection: "row",
           alignItems: "stretch",
           justifyContent: "space-around",
-          backgroundColor: "rgba(255, 255, 255, 0.88)",
+          backgroundColor: "#00072d", // Harmonized dark navy color
           borderTopWidth: 1,
-          borderTopColor: "rgba(0, 0, 0, 0.06)",
-          paddingBottom: Math.max(insets.bottom, 8),
-          height: 48 + Math.max(insets.bottom, 8),
+          borderTopColor: "rgba(255, 255, 255, 0.08)",
+          paddingBottom: Math.max(insets.bottom, 6),
+          height: 60 + Math.max(insets.bottom, 6), // Enlarged spacious navbar
           ...Platform.select({
             ios: {
               shadowColor: "#000",
               shadowOffset: { width: 0, height: -2 },
-              shadowOpacity: 0.05,
-              shadowRadius: 5,
+              shadowOpacity: 0.15,
+              shadowRadius: 8,
             },
             android: {
               elevation: 8,
             },
             web: {
-              boxShadow: "0 -2px 10px rgba(0, 0, 0, 0.05)",
+              boxShadow: "0 -4px 12px rgba(0, 0, 0, 0.15)",
             },
           }),
         }}
@@ -143,67 +143,77 @@ export default function CustomTabBar({
             >{({ hovered }) => {
               const isItemHighlighted = isFocused || hovered;
               return (
-                <View style={{ alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>{isFocused && !isTambah && (
-                  <View
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      width: 24,
-                      height: 3,
-                      backgroundColor: activeColor,
-                      borderBottomLeftRadius: 1.5,
-                      borderBottomRightRadius: 1.5,
-                    }}
-                  />
-                )}{isTambah ? (
-                  <View
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 18,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: isItemHighlighted ? activeColor : "#ffffff",
-                      borderWidth: 1,
-                      borderColor: "rgba(0, 0, 0, 0.05)",
-                      ...Platform.select({
-                        ios: {
-                          shadowColor: activeColor,
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.15,
-                          shadowRadius: 4,
-                        },
-                        android: {
-                          elevation: 2,
-                        },
-                        web: {
-                          boxShadow: isItemHighlighted
-                            ? `0 2px 10px ${activeColor}55`
-                            : "0 2px 6px rgba(0, 0, 0, 0.05)",
-                          transition: "all 0.2s ease-in-out",
-                        },
-                      }),
-                    }}
-                  ><Ionicons
-                    name={isItemHighlighted ? "add" : "add"}
-                    size={22}
-                    color={isItemHighlighted ? "#ffffff" : activeColor}
-                  /></View>
-                ) : (
-                  <Ionicons
-                    name={isItemHighlighted ? config.iconFilled : config.iconOutline}
-                    size={20}
-                    color={isItemHighlighted ? activeColor : inactiveColor}
-                    style={{
-                      opacity: isItemHighlighted ? 1 : 0.8,
-                      ...Platform.select({
-                        web: {
-                          transition: "color 0.15s ease-in-out, opacity 0.15s ease-in-out",
-                        },
-                      }),
-                    }}
-                  />
-                )}</View>
+                <View style={{ alignItems: "center", justifyContent: "center", width: "100%", height: "100%", paddingTop: 4 }}>
+                  {isFocused && !isTambah && (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        width: 24,
+                        height: 3,
+                        backgroundColor: activeColor,
+                        borderBottomLeftRadius: 1.5,
+                        borderBottomRightRadius: 1.5,
+                      }}
+                    />
+                  )}
+                  {isTambah ? (
+                    <View style={{ alignItems: "center", justifyContent: "center" }}>
+                      <View
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 20,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: isItemHighlighted ? activeColor : "rgba(255, 255, 255, 0.12)",
+                          borderWidth: 1.5,
+                          borderColor: "rgba(255, 255, 255, 0.08)",
+                          marginBottom: 2,
+                          ...Platform.select({
+                            ios: {
+                              shadowColor: activeColor,
+                              shadowOffset: { width: 0, height: 2 },
+                              shadowOpacity: 0.15,
+                              shadowRadius: 4,
+                            },
+                            android: {
+                              elevation: 2,
+                            },
+                            web: {
+                              boxShadow: isItemHighlighted
+                                ? `0 2px 10px ${activeColor}55`
+                                : "0 2px 6px rgba(0, 0, 0, 0.05)",
+                            },
+                          }),
+                        }}
+                      >
+                        <Ionicons
+                          name="add"
+                          size={24}
+                          color={isItemHighlighted ? "#00072d" : "#ffffff"}
+                        />
+                      </View>
+                      <Text style={{ color: isItemHighlighted ? activeColor : inactiveColor, fontSize: 10, fontWeight: "600" }}>
+                        {config.label}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={{ alignItems: "center", justifyContent: "center" }}>
+                      <Ionicons
+                        name={isItemHighlighted ? config.iconFilled : config.iconOutline}
+                        size={22}
+                        color={isItemHighlighted ? activeColor : inactiveColor}
+                        style={{
+                          opacity: isItemHighlighted ? 1 : 0.8,
+                        }}
+                      />
+                      <Text style={{ color: isItemHighlighted ? activeColor : inactiveColor, fontSize: 10, fontWeight: "600", marginTop: 4 }}>
+                        {config.label}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               );
             }}</Pressable>
           );
@@ -225,54 +235,78 @@ export default function CustomTabBar({
           ><View
               style={{
                 position: "absolute",
-                bottom: 56 + Math.max(insets.bottom, 8),
-                width: 190,
+                bottom: 66 + Math.max(insets.bottom, 6), // Align exactly above the newly enlarged tab bar
+                width: 210,
                 backgroundColor: "#0F1A30",
                 borderRadius: 16,
-                borderWidth: 1,
-                borderColor: "rgba(255, 255, 255, 0.12)",
-                paddingVertical: 4,
+                borderWidth: 1.5,
+                borderColor: "rgba(255, 255, 255, 0.16)",
+                paddingVertical: 6,
                 ...Platform.select({
                   ios: {
                     shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 5 },
-                    shadowOpacity: 0.25,
-                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 10,
                   },
                   android: {
-                    elevation: 8,
+                    elevation: 10,
                   },
                   web: {
-                    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)",
+                    boxShadow: "0 8px 30px rgba(0, 0, 0, 0.3)",
                   },
                 }),
               }}
-            ><Pressable
+            >
+              <Pressable
                 onPress={() => {
                   setShowMenu(false);
-                  alert("Fitur Input Barang segera hadir!");
+                  router.push("/input-barang");
                 }}
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  backgroundColor: pressed ? "rgba(255, 255, 255, 0.08)" : "transparent",
-                  borderBottomWidth: 1,
-                  borderBottomColor: "rgba(255, 255, 255, 0.08)",
-                })}
-              ><Ionicons name="cube-outline" size={16} color="#ffffff" style={{ marginRight: 12 }} /><Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "500" }}>Input Barang</Text></Pressable><Pressable
+              >
+                {({ pressed }) => (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingVertical: 14,
+                      paddingHorizontal: 18,
+                      backgroundColor: pressed ? "rgba(255, 255, 255, 0.08)" : "transparent",
+                      borderBottomWidth: 1,
+                      borderBottomColor: "rgba(255, 255, 255, 0.08)",
+                    }}
+                  >
+                    <Ionicons name="cube-outline" size={18} color="#ffffff" style={{ marginRight: 12 }} />
+                    <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "600" }}>
+                      Input Barang
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+
+              <Pressable
                 onPress={() => {
                   setShowMenu(false);
-                  alert("Fitur Input Pembeli segera hadir!");
+                  router.push("/input-pembeli");
                 }}
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  backgroundColor: pressed ? "rgba(255, 255, 255, 0.08)" : "transparent",
-                })}
-              ><Ionicons name="person-outline" size={16} color="#ffffff" style={{ marginRight: 12 }} /><Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "500" }}>Input Pembeli</Text></Pressable></View></View></Pressable></Modal></View>
+              >
+                {({ pressed }) => (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingVertical: 14,
+                      paddingHorizontal: 18,
+                      backgroundColor: pressed ? "rgba(255, 255, 255, 0.08)" : "transparent",
+                    }}
+                  >
+                    <Ionicons name="person-outline" size={18} color="#ffffff" style={{ marginRight: 12 }} />
+                    <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "600" }}>
+                      Input Pembeli
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            </View></View></Pressable></Modal></View>
   );
 }
