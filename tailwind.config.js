@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: [
-    "./app/**/*.{js,jsx,ts,tsx}",
-    "./src/**/*.{js,jsx,ts,tsx}",
-  ],
+  content: ["./app/**/*.{js,jsx,ts,tsx}", "./src/**/*.{js,jsx,ts,tsx}"],
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
@@ -52,11 +49,11 @@ module.exports = {
         },
         // === Surface Colors (Dark Theme) ===
         surface: {
-          0: "#020617",    // darkest background
-          50: "#0f172a",   // card background
-          100: "#1e293b",  // elevated surface
-          200: "#334155",  // border / divider
-          300: "#475569",  // disabled
+          0: "#020617", // darkest background
+          50: "#0f172a", // card background
+          100: "#1e293b", // elevated surface
+          200: "#334155", // border / divider
+          300: "#475569", // disabled
         },
         // === Text Colors ===
         content: {

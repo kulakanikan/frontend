@@ -2,11 +2,7 @@
  * Axios API client with interceptors for authentication,
  * error handling, and request/response logging.
  */
-import axios, {
-  AxiosError,
-  InternalAxiosRequestConfig,
-  AxiosResponse,
-} from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from "axios";
 
 import { API } from "@/src/constants";
 
