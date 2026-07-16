@@ -1,21 +1,13 @@
 module.exports = {
   root: true,
-  extends: [
-    "expo",
-    "prettier",
-  ],
+  extends: ["expo", "prettier"],
   plugins: ["prettier"],
   rules: {
     "prettier/prettier": "warn",
     "import/order": [
       "warn",
       {
-        groups: [
-          "builtin",
-          "external",
-          "internal",
-          ["parent", "sibling", "index"],
-        ],
+        groups: ["builtin", "external", "internal", ["parent", "sibling", "index"]],
         pathGroups: [
           {
             pattern: "react",

@@ -87,36 +87,24 @@ export function DashboardScreen() {
               <Text className="text-ocean-200 text-[10px] uppercase tracking-widest">
                 Total Stok
               </Text>
-              <Text className="text-content-primary text-xl font-bold mt-1">
-                1.250
-              </Text>
-              <Text className="text-ocean-200 text-[10px] mt-0.5">
-                kg tersedia
-              </Text>
+              <Text className="text-content-primary text-xl font-bold mt-1">1.250</Text>
+              <Text className="text-ocean-200 text-[10px] mt-0.5">kg tersedia</Text>
             </View>
 
             <View className="flex-1 bg-surface-50 rounded-2xl p-4 border border-surface-200">
               <Text className="text-content-tertiary text-[10px] uppercase tracking-widest">
                 Transaksi
               </Text>
-              <Text className="text-content-primary text-xl font-bold mt-1">
-                48
-              </Text>
-              <Text className="text-content-tertiary text-[10px] mt-0.5">
-                hari ini
-              </Text>
+              <Text className="text-content-primary text-xl font-bold mt-1">48</Text>
+              <Text className="text-content-tertiary text-[10px] mt-0.5">hari ini</Text>
             </View>
 
             <View className="flex-1 bg-warning-500/10 rounded-2xl p-4 border border-warning-500/20">
               <Text className="text-warning-500 text-[10px] uppercase tracking-widest">
                 Pendapatan
               </Text>
-              <Text className="text-content-primary text-xl font-bold mt-1">
-                5.2jt
-              </Text>
-              <Text className="text-warning-500 text-[10px] mt-0.5">
-                bulan ini
-              </Text>
+              <Text className="text-content-primary text-xl font-bold mt-1">5.2jt</Text>
+              <Text className="text-warning-500 text-[10px] mt-0.5">bulan ini</Text>
             </View>
           </View>
         </View>
@@ -150,9 +138,7 @@ export function DashboardScreen() {
               Transaksi Terbaru
             </Text>
             <TouchableOpacity activeOpacity={0.7}>
-              <Text className="text-brand-400 text-sm font-medium">
-                Lihat Semua
-              </Text>
+              <Text className="text-brand-400 text-sm font-medium">Lihat Semua</Text>
             </TouchableOpacity>
           </View>
 

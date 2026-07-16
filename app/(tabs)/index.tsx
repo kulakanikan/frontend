@@ -1,9 +1,5 @@
-/**
- * Home / Dashboard Screen
- * Thin route file - delegates rendering to feature component.
- */
-import { DashboardScreen } from "@/src/features/dashboard/components/dashboard-screen";
+import { View } from "react-native";
 
 export default function HomeTab() {
-  return <DashboardScreen />;
+  return <View style={{ flex: 1, backgroundColor: "#ffffff" }} />;
 }

@@ -11,15 +11,12 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: "#020617" },
+          contentStyle: { backgroundColor: "#ffffff" },
           animation: "slide_from_right",
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="(auth)"
-          options={{ headerShown: false, animation: "fade" }}
-        />
+        <Stack.Screen name="(auth)" options={{ headerShown: false, animation: "fade" }} />
       </Stack>
     </View>
   );
