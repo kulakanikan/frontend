@@ -28,7 +28,12 @@
       "favicon": "./assets/images/favicon.png",
       "bundler": "metro"
     },
-    "plugins": ["expo-router", "expo-font", "expo-secure-store", "expo-asset"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      "expo-asset"
+    ],
     "experiments": {
       "typedRoutes": true
     },
