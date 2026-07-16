@@ -14,12 +14,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useAuthStore } from "../src/store";
+import { Colors, Type, Shadow, SharedStyles } from "../src/constants/theme";
+import { wp, spacing, fontSize as rfs, radius, iconSize } from "../src/utils/responsive";
 
 export default function EditProfileScreen() {
   const router = useRouter();
   const { user, updateProfile } = useAuthStore();
 
   const [name, setName] = useState(user?.name || "");
+  const [email, setEmail] = useState(user?.email || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [avatarUri, setAvatarUri] = useState(user?.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80");
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -27,6 +30,7 @@ export default function EditProfileScreen() {
   // Changes detector
   const hasChanges =
     name.trim() !== (user?.name || "") ||
+    email.trim() !== (user?.email || "") ||
     phone.trim() !== (user?.phone || "") ||
     avatarUri !== (user?.avatar_url || "");
 
@@ -71,20 +75,9 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#00072d" }}>
+    <SafeAreaView style={SharedStyles.screen}>
       {/* Header */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-          backgroundColor: "#00072d",
-          borderBottomWidth: 1,
-          borderBottomColor: "rgba(255, 255, 255, 0.08)",
-        }}
-      >
+      <View style={SharedStyles.header}>
         <Pressable
           onPress={() => router.back()}
           style={({ pressed }) => ({
@@ -94,10 +87,10 @@ export default function EditProfileScreen() {
             width: 60,
           })}
         >
-          <Ionicons name="chevron-back" size={24} color="#ffffff" />
+          <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
         </Pressable>
 
-        <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "bold" }}>
+        <Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: "bold" }}>
           Edit Profil
         </Text>
 
@@ -117,7 +110,7 @@ export default function EditProfileScreen() {
         >
           <Text
             style={{
-              color: hasChanges ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
+              color: hasChanges ? "#ffffff" : Colors.textMuted,
               fontWeight: "bold",
               fontSize: 13,
             }}
@@ -132,21 +125,21 @@ export default function EditProfileScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView
-          style={{ flex: 1, backgroundColor: "#e5eaf7" }}
-          contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+          style={SharedStyles.content}
+          contentContainerStyle={{ padding: spacing(20), paddingBottom: spacing(60) }}
         >
           {/* Success Banner */}
           {saveSuccess && (
-            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#22c55e", padding: 12, borderRadius: 12, marginBottom: 16 }}>
-              <Ionicons name="checkmark-circle" size={20} color="#ffffff" style={{ marginRight: 8 }} />
-              <Text style={{ color: "#ffffff", fontWeight: "bold", fontSize: 13 }}>
+            <View style={[SharedStyles.row, { backgroundColor: Colors.success, padding: spacing(12), borderRadius: radius(12), marginBottom: spacing(16) }]}>
+              <Ionicons name="checkmark-circle" size={iconSize(20)} color={Colors.textWhite} style={{ marginRight: spacing(8) }} />
+              <Text style={{ color: Colors.textWhite, fontWeight: "bold", fontSize: rfs(13) }}>
                 Profil berhasil disimpan! Kembali...
               </Text>
             </View>
           )}
 
           {/* Profile Picture Header Block */}
-          <View style={{ alignItems: "center", marginBottom: 28, marginTop: 10 }}>
+          <View style={{ alignItems: "center", marginBottom: spacing(28), marginTop: spacing(10) }}>
             <Pressable
               onPress={handlePickImage}
               style={({ pressed }) => ({
@@ -157,11 +150,11 @@ export default function EditProfileScreen() {
               <Image
                 source={{ uri: avatarUri }}
                 style={{
-                  width: 120,
-                  height: 120,
-                  borderRadius: 60,
+                  width: wp(120),
+                  height: wp(120),
+                  borderRadius: wp(60),
                   borderWidth: 4,
-                  borderColor: "#123499",
+                  borderColor: Colors.royalBlue,
                 }}
               />
               <View
@@ -169,106 +162,91 @@ export default function EditProfileScreen() {
                   position: "absolute",
                   bottom: 2,
                   right: 2,
-                  backgroundColor: "#123499",
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
+                  backgroundColor: Colors.royalBlue,
+                  width: wp(32),
+                  height: wp(32),
+                  borderRadius: wp(16),
                   alignItems: "center",
                   justifyContent: "center",
                   borderWidth: 2.5,
-                  borderColor: "#ffffff",
+                  borderColor: Colors.card,
                 }}
               >
-                <Ionicons name="camera" size={14} color="#ffffff" />
+                <Ionicons name="camera" size={iconSize(14)} color={Colors.textWhite} />
               </View>
             </Pressable>
 
             {/* Clickable text helper to trigger image picker */}
-            <Pressable onPress={handlePickImage} style={{ marginTop: 8 }}>
-              <Text style={{ color: "#123499", fontSize: 13, fontWeight: "bold", textDecorationLine: "underline" }}>
+            <Pressable onPress={handlePickImage} style={{ marginTop: spacing(8) }}>
+              <Text style={{ color: Colors.royalBlue, fontSize: rfs(13), fontWeight: "bold", textDecorationLine: "underline" }}>
                 Ubah Foto Profil
               </Text>
             </Pressable>
           </View>
 
           {/* Form edit profil */}
-          <View
-            style={{
-              backgroundColor: "#ffffff",
-              borderRadius: 20,
-              padding: 20,
-              borderWidth: 1.2,
-              borderColor: "rgba(18, 52, 153, 0.25)",
-              shadowColor: "#123499",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.04,
-              shadowRadius: 10,
-              elevation: 2,
-              marginBottom: 28,
-            }}
-          >
-            <Text style={{ color: "#00072d", fontSize: 15, fontWeight: "bold", marginBottom: 16 }}>
-              Data Profil Baru
+          <View style={SharedStyles.formCard}>
+            <Text style={{ ...Type.h3, marginBottom: spacing(16) }}>
+              Detail Informasi Akun
             </Text>
 
-            {/* Input Nama */}
-            <View style={{ marginBottom: 18 }}>
-              <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 6 }}>
-                Nama Lengkap
-              </Text>
-              <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#e5eaf7", borderRadius: 12, paddingHorizontal: 14 }}>
-                <Ionicons name="person-outline" size={18} color="#123499" style={{ marginRight: 10 }} />
-                <TextInput
-                  style={{ flex: 1, height: 46, fontSize: 14, color: "#00072d" }}
-                  placeholder="Masukkan nama lengkap"
-                  placeholderTextColor="#64748b"
-                  value={name}
-                  onChangeText={setName}
-                />
-              </View>
+            {/* Name Input */}
+            <View style={{ marginBottom: spacing(16) }}>
+              <Text style={{ ...Type.label, marginBottom: spacing(8) }}>Nama Lengkap</Text>
+              <TextInput
+                style={SharedStyles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Masukkan nama lengkap"
+                placeholderTextColor={Colors.textMuted}
+              />
             </View>
 
-            {/* Input Nomor HP */}
-            <View style={{ marginBottom: 6 }}>
-              <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 6 }}>
-                Nomor Telepon
-              </Text>
-              <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#e5eaf7", borderRadius: 12, paddingHorizontal: 14 }}>
-                <Ionicons name="call-outline" size={18} color="#123499" style={{ marginRight: 10 }} />
-                <TextInput
-                  style={{ flex: 1, height: 46, fontSize: 14, color: "#00072d" }}
-                  placeholder="Masukkan nomor HP"
-                  placeholderTextColor="#64748b"
-                  keyboardType="phone-pad"
-                  value={phone}
-                  onChangeText={setPhone}
-                />
-              </View>
+            {/* Email Input */}
+            <View style={{ marginBottom: spacing(16) }}>
+              <Text style={{ ...Type.label, marginBottom: spacing(8) }}>Email</Text>
+              <TextInput
+                style={SharedStyles.input}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="email@example.com"
+                placeholderTextColor={Colors.textMuted}
+              />
+            </View>
+
+            {/* Phone Input */}
+            <View style={{ marginBottom: spacing(16) }}>
+              <Text style={{ ...Type.label, marginBottom: spacing(8) }}>Nomor WhatsApp / Telepon</Text>
+              <TextInput
+                style={SharedStyles.input}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholder="Contoh: 081234567890"
+                placeholderTextColor={Colors.textMuted}
+              />
             </View>
 
             {/* Ubah Profil Button inside Form Card */}
             <Pressable
               onPress={handleSave}
               disabled={!hasChanges}
-              style={({ pressed }) => ({
-                flexDirection: "row",
-                backgroundColor: hasChanges
-                  ? (pressed ? "#15803d" : "#22c55e")
-                  : "#94a3b8",
-                height: 46,
-                borderRadius: 12,
-                alignItems: "center",
-                justifyContent: "center",
-                marginTop: 20,
-                shadowColor: hasChanges ? "#22c55e" : "transparent",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: hasChanges ? 0.2 : 0,
-                shadowRadius: 6,
-                elevation: hasChanges ? 3 : 0,
-              })}
+              style={({ pressed }) => [
+                SharedStyles.primaryButton,
+                {
+                  flexDirection: "row",
+                  backgroundColor: hasChanges
+                    ? (pressed ? Colors.successDark : Colors.success)
+                    : Colors.textMuted,
+                  marginTop: spacing(20),
+                  shadowOpacity: hasChanges ? 0.2 : 0,
+                },
+              ]}
             >
-              <Ionicons name="checkmark-circle-outline" size={18} color="#ffffff" style={{ marginRight: 8 }} />
-              <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "bold" }}>
+              <Ionicons name="checkmark-circle-outline" size={iconSize(18)} color={Colors.textWhite} style={{ marginRight: spacing(8) }} />
+              <Text style={{ color: Colors.textWhite, fontSize: rfs(14), fontWeight: "bold" }}>
                 Ubah Profil
               </Text>
             </Pressable>

@@ -83,3 +83,10 @@ export function relativeTime(dateStr: string): string {
     year: "numeric",
   }).format(new Date(dateStr));
 }
+
+// Re-export responsive utilities
+export {
+  wp, hp, ms, screenWidth, screenHeight,
+  isSmallDevice, isLargeDevice, isTablet,
+  widthPercent, heightPercent,
+} from "./responsive";

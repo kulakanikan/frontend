@@ -4,16 +4,18 @@ import {
   Text,
   ScrollView,
   Pressable,
-  SafeAreaView,
   Animated,
   Modal,
   TextInput,
   Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useFishStore } from "../../src/store";
 import { FishStock } from "../../src/types";
+import { Colors, Type, Shadow, SharedStyles } from "../../src/constants/theme";
+import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../../src/utils/responsive";
 
 export default function StockTab() {
   const router = useRouter();
@@ -161,154 +163,152 @@ export default function StockTab() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#00072d" }}>
-      {/* Header */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "flex-start",
-          alignItems: "center",
-          paddingHorizontal: 18,
-          paddingVertical: 16,
-          backgroundColor: "#00072d",
-          borderBottomWidth: 1,
-          borderBottomColor: "rgba(255, 255, 255, 0.08)",
-        }}
-      >
-        <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: "bold" }}>
-          Stok Gudang
-        </Text>
+    <SafeAreaView style={SharedStyles.screen}>
+      <View style={[SharedStyles.header, { backgroundColor: "transparent", paddingVertical: spacing(20) }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: Colors.textPrimary, fontSize: rfs(22), fontWeight: "900", letterSpacing: 0.5 }}>
+            Gudang & Stok
+          </Text>
+        </View>
       </View>
 
-      <ScrollView style={{ flex: 1, backgroundColor: "#e5eaf7" }} contentContainerStyle={{ padding: 16, paddingBottom: 80 }}>
-        {/* Stats Row */}
-        <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
-          <View style={{ flex: 1, backgroundColor: "#ffffff", padding: 14, borderRadius: 16, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600" }}>Total Jenis</Text>
-              <Ionicons name="fish-outline" size={16} color="#123499" />
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing(100) }} showsVerticalScrollIndicator={false}>
+        
+        {/* Big Card Overview */}
+        <View style={{ paddingHorizontal: spacing(16) }}>
+          <View style={{
+            backgroundColor: Colors.cardBlue,
+            borderRadius: radius(28),
+            padding: spacing(24),
+            marginBottom: spacing(16),
+            ...Shadow.cardLift,
+          }}>
+            <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(24) }]}>
+              <View style={[SharedStyles.row, { gap: spacing(12) }]}>
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name="cube" size={iconSize(20)} color="#ffffff" />
+                </View>
+                <Text style={{ color: "#ffffff", opacity: 0.9, fontWeight: "700", fontSize: rfs(14) }}>Aset Gudang</Text>
+              </View>
             </View>
-            <Text style={{ color: "#00072d", fontSize: 18, fontWeight: "bold" }}>{totalKinds} Ikan</Text>
-          </View>
-
-          <View style={{ flex: 1, backgroundColor: "#ffffff", padding: 14, borderRadius: 16, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600" }}>Total Berat</Text>
-              <Ionicons name="scale-outline" size={16} color="#051650" />
-            </View>
-            <Text style={{ color: "#00072d", fontSize: 18, fontWeight: "bold" }}>{totalQuantity} Kg</Text>
-          </View>
-
-          <View style={{ flex: 1, backgroundColor: "#ffffff", padding: 14, borderRadius: 16, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600" }}>Nilai Aset</Text>
-              <Ionicons name="wallet-outline" size={16} color="#22c55e" />
-            </View>
-            <Text style={{ color: "#123499", fontSize: 13, fontWeight: "bold", marginTop: 4 }}>
+            <Text style={{ color: "#ffffff", fontSize: rfs(12), opacity: 0.8, marginBottom: 4 }}>Total Nilai Stok Ikan</Text>
+            <Text style={{ color: "#ffffff", fontSize: rfs(32), fontWeight: "900" }} numberOfLines={1} adjustsFontSizeToFit>
               Rp {totalAsetValue.toLocaleString()}
             </Text>
           </View>
+
+          {/* Mini Stats Row */}
+          <View style={[SharedStyles.row, { gap: spacing(16), marginBottom: spacing(24) }]}>
+            <View style={{
+              flex: 1, backgroundColor: "#ffffff", padding: spacing(16), borderRadius: radius(24), ...Shadow.card
+            }}>
+              <Text style={{ color: Colors.textMuted, fontSize: rfs(11), fontWeight: "600", marginBottom: spacing(4) }}>Total Berat</Text>
+              <Text style={{ color: Colors.navy, fontSize: rfs(24), fontWeight: "900" }}>{totalQuantity} <Text style={{ fontSize: rfs(12), color: Colors.textMuted }}>Kg</Text></Text>
+            </View>
+            <View style={{
+              flex: 1, backgroundColor: "#ffffff", padding: spacing(16), borderRadius: radius(24), ...Shadow.card
+            }}>
+              <Text style={{ color: Colors.textMuted, fontSize: rfs(11), fontWeight: "600", marginBottom: spacing(4) }}>Jenis Ikan</Text>
+              <Text style={{ color: Colors.navy, fontSize: rfs(24), fontWeight: "900" }}>{totalKinds} <Text style={{ fontSize: rfs(12), color: Colors.textMuted }}>Jenis</Text></Text>
+            </View>
+          </View>
         </View>
 
-        {/* Action helper banner */}
-        <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#ffffff", padding: 12, borderRadius: 16, marginBottom: 20, borderWidth: 1, borderColor: "rgba(10,36,114,0.08)" }}>
-          <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "rgba(18, 52, 153, 0.1)", alignItems: "center", justifyContent: "center", marginRight: 10 }}>
-            <Ionicons name="finger-print-outline" size={14} color="#123499" />
+        {/* List of Stock in Dark Sheet */}
+        <View style={{
+          backgroundColor: Colors.navy,
+          borderTopLeftRadius: radius(32),
+          borderTopRightRadius: radius(32),
+          padding: spacing(24),
+          minHeight: hp(500),
+        }}>
+          <View style={{ alignItems: "center", marginBottom: spacing(16) }}>
+            <View style={{ width: 40, height: 4, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 2 }} />
           </View>
-          <Text style={{ color: "#051650", fontSize: 11, fontWeight: "600", flex: 1 }}>
-            Ketuk pada kartu ikan untuk memunculkan pilihan Add-on, Edit, atau Hapus.
-          </Text>
-        </View>
 
-        {/* Stock List Section */}
-        <Text style={{ color: "#00072d", fontSize: 15, fontWeight: "bold", marginBottom: 12 }}>Daftar Inventaris Ikan</Text>
-
-        {fishStocks.length === 0 ? (
-          <View style={{ backgroundColor: "#ffffff", padding: 40, borderRadius: 20, alignItems: "center", elevation: 2 }}>
-            <Ionicons name="cube-outline" size={56} color="#64748b" style={{ marginBottom: 12 }} />
-            <Text style={{ color: "#64748b", fontSize: 15, fontWeight: "500" }}>Belum ada stok di gudang.</Text>
+          <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(24) }]}>
+            <Text style={{ color: "#ffffff", fontSize: rfs(18), fontWeight: "bold" }}>Inventaris Tersedia</Text>
+            <Ionicons name="funnel" size={iconSize(20)} color="#ffffff" />
           </View>
-        ) : (
-          fishStocks.map((item) => (
-            <Pressable
-              key={item.id}
-              onPress={() => handleOpenActionSheet(item)}
-              style={({ pressed }) => ({
-                backgroundColor: pressed ? "#f8fafc" : "#ffffff",
-                marginBottom: 14,
-                borderRadius: 16,
-                borderWidth: 1.2,
-                borderColor: "rgba(18, 52, 153, 0.25)",
-                shadowColor: "#051650",
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.04,
-                shadowRadius: 12,
-                elevation: 2,
-                overflow: "hidden",
-              })}
-            >
-              {/* Top Accent Line colored by quality */}
-              <View style={{ height: 4, backgroundColor: getQualityColor(item.notes) }} />
 
-              <View style={{ padding: 16 }}>
+          {/* Action Helper Note inside dark sheet */}
+          <View style={[SharedStyles.row, { backgroundColor: "rgba(255,255,255,0.1)", borderRadius: radius(12), padding: spacing(12), marginBottom: spacing(20) }]}>
+            <Ionicons name="information-circle" size={16} color="#ffffff" style={{ marginRight: spacing(8) }} />
+            <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: rfs(11), flex: 1 }}>
+              Ketuk pada kartu barang untuk edit, tambah add-on, atau hapus stok.
+            </Text>
+          </View>
+
+          {fishStocks.length === 0 ? (
+            <View style={{ alignItems: "center", marginTop: spacing(40) }}>
+              <Ionicons name="cube-outline" size={iconSize(48)} color="rgba(255,255,255,0.3)" />
+              <Text style={{ color: "rgba(255,255,255,0.5)", marginTop: spacing(12), fontSize: rfs(14) }}>
+                Belum ada stok di gudang.
+              </Text>
+            </View>
+          ) : (
+            fishStocks.map((item) => (
+              <Pressable
+                key={item.id}
+                onPress={() => handleOpenActionSheet(item)}
+                style={({ pressed }) => ({
+                  backgroundColor: pressed ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.05)",
+                  borderRadius: radius(20),
+                  padding: spacing(16),
+                  marginBottom: spacing(14),
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.1)",
+                })}
+              >
                 {/* Header Row */}
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
-                    <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: "rgba(18, 52, 153, 0.1)", alignItems: "center", justifyContent: "center" }}>
-                      <Ionicons name="fish" size={16} color="#123499" />
+                <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(16) }]}>
+                  <View style={[SharedStyles.row, { flex: 1, marginRight: spacing(12) }]}>
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center", marginRight: spacing(12) }}>
+                      <Ionicons name="fish" size={iconSize(20)} color="#ffffff" />
                     </View>
-                    <Text style={{ color: "#00072d", fontSize: 16, fontWeight: "bold" }} numberOfLines={1}>
-                      {item.fish_type.name}
-                    </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: "#ffffff", fontSize: rfs(16), fontWeight: "bold", marginBottom: 2 }} numberOfLines={1}>
+                        {item.fish_type.name}
+                      </Text>
+                      {item.notes ? (
+                        <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: rfs(11) }} numberOfLines={1}>
+                          {item.notes}
+                        </Text>
+                      ) : null}
+                    </View>
                   </View>
-
-                  {/* Weight Capsule Tag */}
-                  <View style={{ backgroundColor: "#123499", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
-                    <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
-                      {item.quantity} Kg
-                    </Text>
+                  <View style={{ backgroundColor: "rgba(255,255,255,0.15)", paddingHorizontal: spacing(10), paddingVertical: spacing(6), borderRadius: radius(12) }}>
+                    <Text style={{ color: "#ffffff", fontSize: rfs(13), fontWeight: "800" }}>{item.quantity} Kg</Text>
                   </View>
                 </View>
 
-                {/* Info Grid (Split into two columns) */}
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 12, backgroundColor: "#f8fafc", padding: 10, borderRadius: 10 }}>
+                {/* Info Details */}
+                <View style={[SharedStyles.row, { justifyContent: "space-between", backgroundColor: "rgba(0,0,0,0.2)", padding: spacing(12), borderRadius: radius(12) }]}>
                   <View>
-                    <Text style={{ color: "#64748b", fontSize: 10, textTransform: "uppercase", fontWeight: "600" }}>Harga Modal</Text>
-                    <Text style={{ color: "#051650", fontSize: 14, fontWeight: "bold", marginTop: 2 }}>
-                      Rp {item.buy_price.toLocaleString()}/Kg
+                    <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: rfs(10), fontWeight: "600", textTransform: "uppercase", marginBottom: 2 }}>Modal / Kg</Text>
+                    <Text style={{ color: "#ffffff", fontSize: rfs(14), fontWeight: "bold" }}>
+                      Rp {item.buy_price.toLocaleString()}
                     </Text>
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ color: "#64748b", fontSize: 10, textTransform: "uppercase", fontWeight: "600" }}>Kualitas</Text>
-                    <Text style={{ color: getQualityColor(item.notes), fontSize: 13, fontWeight: "bold", marginTop: 2 }}>
-                      {item.notes || "Standar"}
+                    <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: rfs(10), fontWeight: "600", textTransform: "uppercase", marginBottom: 2 }}>Masuk</Text>
+                    <Text style={{ color: "#ffffff", fontSize: rfs(12), fontWeight: "600" }}>
+                      {item.batch_date}
                     </Text>
-                  </View>
-                </View>
-
-                {/* Metadata row */}
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: (item.addons && item.addons.length > 0) ? 12 : 0 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Ionicons name="calendar-outline" size={12} color="#64748b" style={{ marginRight: 4 }} />
-                    <Text style={{ color: "#64748b", fontSize: 11 }}>Masuk: {item.batch_date}</Text>
-                  </View>
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text style={{ color: "#123499", fontSize: 11, fontWeight: "700", marginRight: 2 }}>Ketuk Opsi</Text>
-                    <Ionicons name="chevron-forward-circle" size={14} color="#123499" />
                   </View>
                 </View>
 
                 {/* Add-ons list if present */}
                 {item.addons && item.addons.length > 0 && (
-                  <View style={{ borderTopWidth: 1, borderTopColor: "#e2e8f0", paddingTop: 12, marginTop: 4 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
-                      <Ionicons name="cube-outline" size={12} color="#123499" style={{ marginRight: 4 }} />
-                      <Text style={{ color: "#123499", fontSize: 11, fontWeight: "bold" }}>Add-on Pelengkap:</Text>
+                  <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", paddingTop: spacing(12), marginTop: spacing(12) }}>
+                    <View style={[SharedStyles.row, { marginBottom: spacing(8) }]}>
+                      <Ionicons name="add-circle" size={14} color="rgba(255,255,255,0.7)" style={{ marginRight: 6 }} />
+                      <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: rfs(11), fontWeight: "bold" }}>Add-ons:</Text>
                     </View>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing(8) }}>
                       {item.addons.map((add) => (
-                        <View key={add.id} style={{ backgroundColor: "#e5eaf7", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, flexDirection: "row", alignItems: "center" }}>
-                          <Text style={{ color: "#051650", fontSize: 10, fontWeight: "600" }}>
+                        <View key={add.id} style={[SharedStyles.row, { backgroundColor: "rgba(255,255,255,0.1)", paddingHorizontal: spacing(8), paddingVertical: spacing(6), borderRadius: radius(8) }]}>
+                          <Text style={{ color: "#ffffff", fontSize: rfs(10), fontWeight: "600" }}>
                             {add.name} (+Rp {add.price.toLocaleString()})
                           </Text>
                         </View>
@@ -316,11 +316,12 @@ export default function StockTab() {
                     </View>
                   </View>
                 )}
-              </View>
-            </Pressable>
-          ))
-        )}
+              </Pressable>
+            ))
+          )}
+        </View>
       </ScrollView>
+
 
       {/* BOUNCY POPUP ACTION MODAL IN THE CENTER WITH DARK BLUR BACKDROP */}
       <Modal visible={showActionSheet} transparent animationType="fade">
