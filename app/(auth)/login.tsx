@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Platform,
   Easing,
+  FlatList,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
@@ -16,6 +17,24 @@ import Svg, { Path, Circle, G, Defs, ClipPath } from "react-native-svg";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const BOTTOM_SHEET_HEIGHT = SCREEN_HEIGHT * 0.42;
+
+const ONBOARDING_DATA = [
+  {
+    id: "1",
+    title: "Manage Fish Distribution",
+    description: "The best marine catch transaction recording system. Record purchases from fishermen and sales to customers effortlessly.",
+  },
+  {
+    id: "2",
+    title: "Accurate & Transparent",
+    description: "Monitor cash flow, payables, and receivables in real-time. All data is neatly stored to support your business growth.",
+  },
+  {
+    id: "3",
+    title: "Grow Your Business",
+    description: "Get ready to sail towards greater success with Kulakan Ikan. Let's start your journey now!",
+  },
+];
 
 // Animated Dual Wave Divider (Super Alive Ocean!)
 const AnimatedWave = () => {
@@ -142,7 +161,7 @@ const AnimatedBubble = ({ size, left, duration }: any) => {
       easing: Easing.linear,
       useNativeDriver: true,
     });
-    
+
     const loopAnim = Animated.loop(
       Animated.timing(anim, {
         toValue: 1,
@@ -209,7 +228,7 @@ const AnimatedBubble = ({ size, left, duration }: any) => {
 const AnimatedFish = ({ children, duration = 6000, style, direction = "right" }: any) => {
   const xAnim = useRef(new Animated.Value(0)).current;
   const yAnim = useRef(new Animated.Value(0)).current;
-  
+
   // Randomize durations slightly so they move organically and don't sync up
   const xDuration = useRef(duration * (0.8 + Math.random() * 0.4)).current;
   const yDuration = useRef((duration * 0.7) * (0.8 + Math.random() * 0.4)).current;
@@ -263,8 +282,8 @@ const AnimatedFish = ({ children, duration = 6000, style, direction = "right" }:
   // Bounded horizontal movement so they never leave the screen
   const translateX = xAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: direction === "right" 
-      ? [-20, 35] 
+    outputRange: direction === "right"
+      ? [-20, 35]
       : [20, -35],
   });
 
@@ -275,7 +294,7 @@ const AnimatedFish = ({ children, duration = 6000, style, direction = "right" }:
 
   const rotate = xAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: direction === "right" 
+    outputRange: direction === "right"
       ? ["-2deg", "2deg"]
       : ["2deg", "-2deg"],
   });
@@ -325,7 +344,7 @@ const SmallSwimmingFish = ({
   const yAnim = useRef(new Animated.Value(0)).current;
 
   // Use an off-sync duration for Y to create an organic, non-repeating wandering pattern
-  const yDuration = duration * 0.45; 
+  const yDuration = duration * 0.45;
 
   useEffect(() => {
     // 1. Horizontal swim: from startOffset to 1, then loop 0 to 1
@@ -394,8 +413,8 @@ const SmallSwimmingFish = ({
   // Small tilt based on Y movement for realism
   const rotate = yAnim.interpolate({
     inputRange: [0, 0.5, 1],
-    outputRange: direction === "left" 
-      ? ["-15deg", "0deg", "15deg"] 
+    outputRange: direction === "left"
+      ? ["-15deg", "0deg", "15deg"]
       : ["15deg", "0deg", "-15deg"],
   });
 
@@ -414,11 +433,21 @@ const SmallSwimmingFish = ({
 
 export default function LoginScreen() {
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [onboardingVisible, setOnboardingVisible] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  const sheetTranslateY = useRef(
-    new Animated.Value(BOTTOM_SHEET_HEIGHT)
-  ).current;
+  const sheetTranslateY = useRef(new Animated.Value(BOTTOM_SHEET_HEIGHT)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const onboardingOpacity = useRef(new Animated.Value(1)).current;
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const slidesRef = useRef<FlatList>(null);
+
+  const viewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems[0]) {
+      setCurrentIndex(viewableItems[0].index);
+    }
+  }).current;
+  const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
   const showSheet = useCallback(() => {
     setSheetVisible(true);
@@ -454,6 +483,25 @@ export default function LoginScreen() {
       setSheetVisible(false);
     });
   }, []);
+
+  const finishOnboarding = useCallback(() => {
+    Animated.timing(onboardingOpacity, {
+      toValue: 0,
+      duration: 400,
+      useNativeDriver: true,
+    }).start(() => {
+      setOnboardingVisible(false);
+      showSheet();
+    });
+  }, [showSheet, onboardingOpacity]);
+
+  const scrollToNext = useCallback(() => {
+    if (currentIndex < ONBOARDING_DATA.length - 1) {
+      slidesRef.current?.scrollToIndex({ index: currentIndex + 1 });
+    } else {
+      finishOnboarding();
+    }
+  }, [currentIndex, finishOnboarding]);
 
   const handleGoogleLogin = useCallback(() => {
     hideSheet();
@@ -550,37 +598,79 @@ export default function LoginScreen() {
             </Svg>
           </AnimatedFish>
 
-          {/* Fish 5 - Slender Pointy (Faces Right) */}
-          <AnimatedFish direction="right" delay={1600} duration={5200} style={{ alignSelf: "center", marginRight: 15, marginTop: 25 }}>
-            <Svg width={230} height={60} viewBox="0 0 240 60">
-              <Defs>
-                <ClipPath id="bodyClip5">
-                  <Path d="M30,30 L70,5 C140,5 190,15 220,30 C190,45 140,55 70,55 Z" />
-                </ClipPath>
-              </Defs>
-              <Path d="M35,30 L0,5 L0,55 Z" fill="#ffffff" />
-              <Path d="M30,30 L70,5 C140,5 190,15 220,30 C190,45 140,55 70,55 Z" fill="#00072d" />
-              <G clipPath="url(#bodyClip5)">
-                <Path d="M90,0 L70,30 L90,60 M120,0 L100,30 L120,60 M150,0 L130,30 L150,60 M180,0 L160,30 L180,60" fill="none" stroke="#ffffff" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-              </G>
-              <Circle cx="195" cy="30" r="3" fill="#ffffff" />
-            </Svg>
-          </AnimatedFish>
+
         </View>
 
-        {/* Bottom Button */}
-        <View style={styles.bottomContainer}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.getStartedButton,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={showSheet}
-          >
-            <Text style={styles.getStartedText}>Get Started</Text>
-          </Pressable>
-        </View>
       </View>
+
+      {/* Onboarding Text Overlay (Floating on top of ocean) */}
+      {onboardingVisible && (
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: onboardingOpacity, zIndex: 50, pointerEvents: "box-none" }]}>
+          <View style={{ flex: 1, pointerEvents: "none" }} />
+          
+          <View style={{ height: 280, paddingBottom: 30 }}>
+            <FlatList
+              data={ONBOARDING_DATA}
+              renderItem={({ item }) => (
+                <View style={styles.slide}>
+                  <Text style={styles.slideTitle}>{item.title}</Text>
+                  <Text style={styles.slideDesc}>{item.description}</Text>
+                </View>
+              )}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              pagingEnabled
+              bounces={false}
+              keyExtractor={(item) => item.id}
+              onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+                useNativeDriver: false,
+              })}
+              scrollEventThrottle={32}
+              onViewableItemsChanged={viewableItemsChanged}
+              viewabilityConfig={viewConfig}
+              getItemLayout={(data, index) => ({
+                length: SCREEN_WIDTH,
+                offset: SCREEN_WIDTH * index,
+                index,
+              })}
+              ref={slidesRef}
+            />
+
+            {/* Paginator */}
+            <View style={styles.paginatorContainer}>
+              {ONBOARDING_DATA.map((_, i) => {
+                const inputRange = [(i - 1) * SCREEN_WIDTH, i * SCREEN_WIDTH, (i + 1) * SCREEN_WIDTH];
+                const dotWidth = scrollX.interpolate({
+                  inputRange,
+                  outputRange: [10, 28, 10],
+                  extrapolate: "clamp",
+                });
+                const opacity = scrollX.interpolate({
+                  inputRange,
+                  outputRange: [0.3, 1, 0.3],
+                  extrapolate: "clamp",
+                });
+                return <Animated.View key={i.toString()} style={[styles.dot, { width: dotWidth, opacity }]} />;
+              })}
+            </View>
+
+            {/* Action Button */}
+            <View style={{ paddingHorizontal: 30 }}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.getStartedButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={scrollToNext}
+              >
+                <Text style={styles.getStartedText}>
+                  {currentIndex === ONBOARDING_DATA.length - 1 ? "Get Started" : "Next"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </Animated.View>
+      )}
 
       {/* Bottom Sheet Overlay */}
       {sheetVisible && (
@@ -597,41 +687,41 @@ export default function LoginScreen() {
             { transform: [{ translateY: sheetTranslateY }] },
           ]}
         >
-          <View style={styles.sheetHandle}>
-            <View style={styles.handleBar} />
-          </View>
+        <View style={styles.sheetHandle}>
+          <View style={styles.handleBar} />
+        </View>
 
-          <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>Masuk ke Akun</Text>
-            <Text style={styles.sheetSubtitle}>
-              Gunakan akun Google untuk memulai mengelola bisnis ikan kamu
+        <View style={styles.sheetContent}>
+          <Text style={styles.sheetTitle}>Sign In</Text>
+          <Text style={styles.sheetSubtitle}>
+            Use your Google account to start managing your fishery business
+          </Text>
+
+          <Pressable
+            onPress={handleGoogleLogin}
+            style={({ pressed }) => [
+              styles.googleButton,
+              pressed && styles.googleButtonPressed,
+            ]}
+          >
+            <Image
+              source={require("../../assets/images/google-logo.png")}
+              style={styles.googleLogo}
+            />
+            <Text style={styles.googleButtonText}>
+              Continue with Google
             </Text>
-
-            <Pressable
-              onPress={handleGoogleLogin}
-              style={({ pressed }) => [
-                styles.googleButton,
-                pressed && styles.googleButtonPressed,
-              ]}
-            >
-              <Image
-                source={require("../../assets/images/google-logo.png")}
-                style={styles.googleLogo}
-              />
-              <Text style={styles.googleButtonText}>
-                Lanjutkan dengan Google
-              </Text>
-            </Pressable>
+          </Pressable>
 
 
 
-            <Text style={styles.termsText}>
-              Dengan masuk, kamu menyetujui{" "}
-              <Text style={styles.termsLink}>Syarat & Ketentuan</Text> dan{" "}
-              <Text style={styles.termsLink}>Kebijakan Privasi</Text>
-            </Text>
-          </View>
-        </Animated.View>
+          <Text style={styles.termsText}>
+            By signing in, you agree to our{" "}
+            <Text style={styles.termsLink}>Terms & Conditions</Text> and{" "}
+            <Text style={styles.termsLink}>Privacy Policy</Text>
+          </Text>
+        </View>
+      </Animated.View>
       )}
     </View>
   );
@@ -817,5 +907,39 @@ const styles = StyleSheet.create({
   termsLink: {
     color: "#123499",
     fontWeight: "700",
+  },
+  slide: {
+    width: SCREEN_WIDTH,
+    alignItems: "center",
+    paddingHorizontal: 30,
+    justifyContent: "center",
+  },
+  slideTitle: {
+    color: "#ffffff",
+    fontSize: 28,
+    fontWeight: "900",
+    textAlign: "center",
+    marginBottom: 12,
+    letterSpacing: -0.5,
+  },
+  slideDesc: {
+    color: "#e2e8f0",
+    fontSize: 15,
+    textAlign: "center",
+    lineHeight: 22,
+    fontWeight: "500",
+  },
+  paginatorContainer: {
+    flexDirection: "row",
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  dot: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#ffffff",
+    marginHorizontal: 5,
   },
 });
