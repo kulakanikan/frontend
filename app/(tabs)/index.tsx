@@ -21,14 +21,15 @@ export default function HomeTab() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { transactions, fetchAll } = useFishStore();
-  const { summary, fetchSummary, isLoading } = useDashboardStore();
+  const { summary, fetchSummary, isLoading, aiSummary, fetchAiSummary, isLoadingAi } = useDashboardStore();
 
   // Refresh data whenever the tab comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchSummary().catch((err) => console.error("Failed to load dashboard summary:", err));
+      fetchAiSummary().catch((err) => console.error("Failed to load AI summary:", err));
       fetchAll().catch((err) => console.error("Failed to load fish store data:", err));
-    }, [fetchSummary, fetchAll])
+    }, [fetchSummary, fetchAiSummary, fetchAll])
   );
 
   // Recent transactions list from local store
@@ -144,6 +145,60 @@ export default function HomeTab() {
                 </Text>
               )}
             </View>
+          </View>
+
+          {/* Gemini AI Business Insight Card */}
+          <View style={{
+            backgroundColor: "#ffffff",
+            borderRadius: radius(20),
+            padding: spacing(16),
+            marginBottom: spacing(24),
+            borderWidth: 1.5,
+            borderColor: "rgba(43, 120, 228, 0.15)",
+            ...Shadow.card,
+          }}>
+            <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(12) }]}>
+              <View style={[SharedStyles.row, { gap: spacing(8) }]}>
+                <Ionicons name="sparkles" size={iconSize(18)} color={Colors.royalBlue} />
+                <Text style={{ color: Colors.textPrimary, fontSize: rfs(14), fontWeight: "bold" }}>
+                  Analisis Bisnis Gemini AI
+                </Text>
+              </View>
+              {isLoadingAi ? (
+                <ActivityIndicator size="small" color={Colors.royalBlue} />
+              ) : (
+                <TouchableOpacity onPress={fetchAiSummary} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="refresh" size={iconSize(16)} color={Colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {isLoadingAi && !aiSummary ? (
+              <View style={{ paddingVertical: spacing(8) }}>
+                <ActivityIndicator size="small" color={Colors.royalBlue} style={{ alignSelf: "flex-start", marginBottom: 6 }} />
+                <Text style={{ color: Colors.textMuted, fontSize: rfs(12), fontStyle: "italic" }}>
+                  Menganalisis data transaksi dan stok toko Anda...
+                </Text>
+              </View>
+            ) : aiSummary ? (
+              <Text style={{ color: Colors.textPrimary, fontSize: rfs(12.5), lineHeight: 19 }}>
+                {aiSummary}
+              </Text>
+            ) : (
+              <TouchableOpacity
+                onPress={fetchAiSummary}
+                style={{
+                  backgroundColor: "rgba(43, 120, 228, 0.08)",
+                  padding: spacing(12),
+                  borderRadius: radius(10),
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: Colors.royalBlue, fontSize: rfs(12), fontWeight: "bold" }}>
+                  Dapatkan Insight Bisnis AI
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Activities Row */}

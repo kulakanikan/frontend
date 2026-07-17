@@ -5,6 +5,7 @@ import {
   TextInput,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   Platform,
   KeyboardAvoidingView,
   Modal,
@@ -344,57 +345,46 @@ export default function InputBarangScreen() {
                 <Text style={{ color: "#ef4444", fontSize: 11, marginTop: 4 }}>{errors.quality}</Text>
               )}
             </View>
+
+            {/* Action Buttons (Row Layout) */}
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
+              <TouchableOpacity
+                onPress={() => setShowVoiceModal(true)}
+                activeOpacity={0.7}
+                style={{
+                  width: 50,
+                  height: 50,
+                  borderRadius: 12,
+                  backgroundColor: "#dce6ff",
+                  borderWidth: 2,
+                  borderColor: "#123499",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="mic" size={24} color="#123499" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleSave}
+                activeOpacity={0.7}
+                style={{
+                  flex: 1,
+                  height: 50,
+                  backgroundColor: "#123499",
+                  borderRadius: 12,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  elevation: 3,
+                }}
+              >
+                <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "bold" }}>
+                  Simpan
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
-
-        {/* Sticky Bottom Action Buttons */}
-        <View
-          style={{
-            backgroundColor: "#ffffff",
-            paddingHorizontal: spacing(16),
-            paddingVertical: spacing(12),
-            borderTopWidth: 1.5,
-            borderTopColor: "rgba(18, 52, 153, 0.1)",
-            gap: 10,
-            ...Shadow.card,
-          }}
-        >
-          <Pressable
-            onPress={handleSave}
-            style={({ pressed }) => ({
-              height: 48,
-              backgroundColor: pressed ? Colors.navyLight : Colors.navy,
-              borderRadius: radius(12),
-              alignItems: "center",
-              justifyContent: "center",
-              ...Shadow.button,
-            })}
-          >
-            <Text style={{ color: "#ffffff", fontSize: rfs(15), fontWeight: "bold" }}>
-              Simpan Barang Masuk
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setShowVoiceModal(true)}
-            style={({ pressed }) => ({
-              height: 48,
-              backgroundColor: pressed ? "rgba(43, 120, 228, 0.2)" : "rgba(43, 120, 228, 0.1)",
-              borderRadius: radius(12),
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 1,
-              borderColor: "rgba(43, 120, 228, 0.25)",
-              flexDirection: "row",
-              gap: 8,
-            })}
-          >
-            <Ionicons name="mic" size={20} color={Colors.royalBlue} />
-            <Text style={{ color: Colors.royalBlue, fontSize: rfs(15), fontWeight: "bold" }}>
-              Input via Suara (AI)
-            </Text>
-          </Pressable>
-        </View>
 
         {/* Success Modal Overlay */}
         {showSuccess && (
@@ -462,24 +452,25 @@ export default function InputBarangScreen() {
               </View>
 
               {/* Add New Button */}
-              <Pressable
+              <TouchableOpacity
                 onPress={() => setShowNewSupplierModal(true)}
-                style={({ pressed }) => ({
+                activeOpacity={0.7}
+                style={{
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: pressed ? "rgba(43, 120, 228, 0.15)" : "rgba(43, 120, 228, 0.08)",
+                  backgroundColor: "rgba(43, 120, 228, 0.08)",
                   height: 46,
                   borderRadius: 12,
                   marginBottom: 16,
                   borderWidth: 1.5,
                   borderColor: Colors.royalBlue,
                   borderStyle: "dashed",
-                })}
+                }}
               >
                 <Ionicons name="person-add" size={16} color={Colors.royalBlue} style={{ marginRight: 8 }} />
                 <Text style={{ color: Colors.royalBlue, fontWeight: "bold", fontSize: 13 }}>Tambah Nelayan Baru</Text>
-              </Pressable>
+              </TouchableOpacity>
 
               {/* Search Bar */}
               <View style={{
@@ -594,18 +585,19 @@ export default function InputBarangScreen() {
                 />
               </View>
 
-              {/* Actions */}
               <View style={{ flexDirection: "row", gap: 10 }}>
-                <Pressable
+                <TouchableOpacity
                   disabled={isSavingSupplier}
                   onPress={() => setShowNewSupplierModal(false)}
+                  activeOpacity={0.7}
                   style={{ flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: "#051650", alignItems: "center", justifyContent: "center" }}
                 >
                   <Text style={{ color: "#051650", fontWeight: "bold", fontSize: 13 }}>Batal</Text>
-                </Pressable>
-                <Pressable
+                </TouchableOpacity>
+                <TouchableOpacity
                   disabled={isSavingSupplier}
                   onPress={handleCreateSupplier}
+                  activeOpacity={0.7}
                   style={{ flex: 1, height: 44, backgroundColor: "#123499", borderRadius: 12, alignItems: "center", justifyContent: "center" }}
                 >
                   {isSavingSupplier ? (
@@ -613,7 +605,7 @@ export default function InputBarangScreen() {
                   ) : (
                     <Text style={{ color: "#ffffff", fontWeight: "bold", fontSize: 13 }}>Simpan</Text>
                   )}
-                </Pressable>
+                </TouchableOpacity>
               </View>
             </View>
           </View>

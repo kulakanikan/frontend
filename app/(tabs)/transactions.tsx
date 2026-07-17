@@ -504,7 +504,7 @@ export default function TransactionsTab() {
                 )}
 
                 {/* Receipt Shortcut */}
-                <Pressable
+                <TouchableOpacity
                   onPress={() => {
                     setShowDetailModal(false);
                     if (saleDetail.receipt?.id) {
@@ -513,9 +513,10 @@ export default function TransactionsTab() {
                       alert("Struk belum digenerate untuk transaksi ini");
                     }
                   }}
-                  style={({ pressed }) => ({
+                  activeOpacity={0.7}
+                  style={{
                     height: 46,
-                    backgroundColor: pressed ? "rgba(43, 120, 228, 0.15)" : "rgba(43, 120, 228, 0.08)",
+                    backgroundColor: "rgba(43, 120, 228, 0.08)",
                     borderRadius: 12,
                     alignItems: "center",
                     justifyContent: "center",
@@ -524,11 +525,11 @@ export default function TransactionsTab() {
                     flexDirection: "row",
                     borderWidth: 1,
                     borderColor: Colors.royalBlue,
-                  })}
+                  }}
                 >
                   <Ionicons name="document-text-outline" size={18} color={Colors.royalBlue} style={{ marginRight: 8 }} />
                   <Text style={{ color: Colors.royalBlue, fontWeight: "bold", fontSize: 13 }}>Lihat Struk Penjualan</Text>
-                </Pressable>
+                </TouchableOpacity>
               </ScrollView>
             )}
           </View>

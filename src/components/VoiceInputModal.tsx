@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { voiceApi } from "../services/api";
 import { Colors, Shadow } from "../constants/theme";
 import { spacing, fontSize as rfs, radius } from "../utils/responsive";
@@ -121,7 +121,7 @@ export default function VoiceInputModal({
 
       // Read audio file as base64
       const base64Audio = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: "base64",
       });
 
       // Send to Hono backend
@@ -133,7 +133,7 @@ export default function VoiceInputModal({
       } else {
         throw new Error("Gagal mengurai suara");
       }
-    } catch (err) {
+    } catch (err: any) {
       Alert.alert("Gagal Mengurai", "Gemini tidak dapat memilah suara Anda. Silakan coba lagi.");
     } finally {
       setIsLoading(false);

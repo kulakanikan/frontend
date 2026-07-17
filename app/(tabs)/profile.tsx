@@ -37,18 +37,19 @@ export default function ProfileTab() {
         <Text style={{ color: Colors.textPrimary, fontSize: rfs(20), fontWeight: "900" }}>
           Profil
         </Text>
-        <Pressable
+        <TouchableOpacity
           onPress={() => router.push("/edit-profile")}
-          style={({ pressed }) => ({
-            backgroundColor: pressed ? "rgba(43, 120, 228, 0.2)" : "rgba(43, 120, 228, 0.1)",
+          activeOpacity={0.7}
+          style={{
+            backgroundColor: "rgba(43, 120, 228, 0.1)",
             paddingHorizontal: spacing(16),
             paddingVertical: spacing(8),
             borderRadius: radius(12),
             alignItems: "center",
-          })}
+          }}
         >
           <Text style={{ color: Colors.royalBlue, fontWeight: "800", fontSize: rfs(12) }}>Edit</Text>
-        </Pressable>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
