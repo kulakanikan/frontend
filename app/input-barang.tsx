@@ -98,7 +98,7 @@ export default function InputBarangScreen() {
     }
   }, [params.nama_supplier, suppliers]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newErrors: Record<string, string> = {};
     if (!name.trim()) newErrors.name = "Nama ikan wajib diisi";
     if (!quantity.trim() || isNaN(Number(quantity)) || Number(quantity) <= 0) {
@@ -121,28 +121,32 @@ export default function InputBarangScreen() {
 
     setErrors({});
     
-    // Add to Zustand
-    addStock({
-      fish_type: {
-        id: `ft-${Date.now()}`,
-        name: name.trim(),
-        category: "laut",
-        unit: "kg",
-      },
-      quantity: Number(quantity),
-      buy_price: Number(buyPrice),
-      sell_price: 0, 
-      supplier_id: selectedSupplierId,
-      batch_date: new Date().toISOString().split("T")[0],
-      notes: quality.trim(), 
-    });
+    try {
+      // Add to Zustand and await API completion
+      await addStock({
+        fish_type: {
+          id: `ft-${Date.now()}`,
+          name: name.trim(),
+          category: "laut",
+          unit: "kg",
+        },
+        quantity: Number(quantity),
+        buy_price: Number(buyPrice),
+        sell_price: 0, 
+        supplier_id: selectedSupplierId,
+        batch_date: new Date().toISOString(), // Fix: Send full ISO string to pass backend datetime validation
+        notes: quality.trim(), 
+      });
 
-    // Show success & redirect
-    setShowSuccess(true);
-    timerRef.current = setTimeout(() => {
-      setShowSuccess(false);
-      router.back();
-    }, 1500);
+      // Show success & redirect only after successful API call
+      setShowSuccess(true);
+      timerRef.current = setTimeout(() => {
+        setShowSuccess(false);
+        router.back();
+      }, 1500);
+    } catch (err: any) {
+      alert(err?.message || "Gagal menyimpan data barang masuk");
+    }
   };
 
   const handleCreateSupplier = async () => {
