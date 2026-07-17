@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   ActivityIndicator,
   TextInput,
   Alert,
@@ -262,12 +263,13 @@ export default function ReceiptScreen() {
             />
           </View>
 
-          <Pressable
+          <TouchableOpacity
             disabled={isSendingWa}
             onPress={handleShareWa}
-            style={({ pressed }) => [
+            activeOpacity={0.7}
+            style={[
               styles.shareBtn,
-              { backgroundColor: pressed ? "#1e7e34" : "#25D366" }
+              { backgroundColor: "#25D366" }
             ]}
           >
             {isSendingWa ? (
@@ -278,7 +280,7 @@ export default function ReceiptScreen() {
             <Text style={styles.shareBtnText}>
               {isSendingWa ? "Mengirim..." : "Kirim Sekarang"}
             </Text>
-          </Pressable>
+          </TouchableOpacity>
           
           <Text style={styles.screenshotHint}>
             💡 Tips: Anda juga dapat melakukan screenshot layar untuk menyimpan struk ini di galeri handphone Anda.

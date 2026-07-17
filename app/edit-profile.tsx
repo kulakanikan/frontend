@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   TextInput,
   Image,
   KeyboardAvoidingView,
@@ -94,35 +95,34 @@ export default function EditProfileScreen() {
     <SafeAreaView style={SharedStyles.screen}>
       {/* Header */}
       <View style={SharedStyles.header}>
-        <Pressable
+        <TouchableOpacity
           onPress={() => router.back()}
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.7 : 1,
+          activeOpacity={0.7}
+          style={{
             flexDirection: "row",
             alignItems: "center",
             width: 60,
-          })}
+          }}
         >
           <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
+        </TouchableOpacity>
 
         <Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: "bold" }}>
           Edit Profil Usaha
         </Text>
 
-        <Pressable
+        <TouchableOpacity
           onPress={handleSave}
           disabled={!hasChanges || isSaving}
-          style={({ pressed }) => ({
-            backgroundColor: hasChanges && !isSaving
-              ? (pressed ? "#15803d" : "#22c55e")
-              : "rgba(255, 255, 255, 0.1)",
+          activeOpacity={0.7}
+          style={{
+            backgroundColor: hasChanges && !isSaving ? "#22c55e" : "rgba(255, 255, 255, 0.1)",
             paddingHorizontal: 12,
             paddingVertical: 6,
             borderRadius: 8,
             minWidth: 60,
             alignItems: "center",
-          })}
+          }}
         >
           {isSaving ? (
             <ActivityIndicator size="small" color="#ffffff" />
@@ -137,7 +137,7 @@ export default function EditProfileScreen() {
               Simpan
             </Text>
           )}
-        </Pressable>
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView

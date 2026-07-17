@@ -19,6 +19,7 @@ const mockSummaryData = {
 // Mock dashboardApi
 const mockDashboardApi = {
   summary: mock(async () => mockSummaryData),
+  aiSummary: mock(async () => ({ summary: "Toko Anda dalam kondisi sehat walafiat." })),
 };
 
 mock.module("../services/api", () => ({
@@ -30,11 +31,14 @@ import { useDashboardStore } from "../store/dashboard-store";
 describe("dashboardStore (Zustand)", () => {
   beforeEach(() => {
     mockDashboardApi.summary.mockClear();
+    mockDashboardApi.aiSummary.mockClear();
 
     // Reset store state
     useDashboardStore.setState({
       summary: null,
+      aiSummary: null,
       isLoading: false,
+      isLoadingAi: false,
       lastFetchedAt: null,
     });
   });
@@ -61,5 +65,24 @@ describe("dashboardStore (Zustand)", () => {
 
     expect(useDashboardStore.getState().isLoading).toBe(false);
     expect(useDashboardStore.getState().summary).toBeNull();
+  });
+
+  it("fetchAiSummary: should fetch and store AI business summary", async () => {
+    await useDashboardStore.getState().fetchAiSummary();
+
+    expect(useDashboardStore.getState().isLoadingAi).toBe(false);
+    expect(useDashboardStore.getState().aiSummary).toBe("Toko Anda dalam kondisi sehat walafiat.");
+    expect(mockDashboardApi.aiSummary).toHaveBeenCalled();
+  });
+
+  it("fetchAiSummary: should handle errors gracefully and return fallbacks", async () => {
+    mockDashboardApi.aiSummary.mockImplementationOnce(() => {
+      throw new Error("API Failure");
+    });
+
+    await useDashboardStore.getState().fetchAiSummary();
+
+    expect(useDashboardStore.getState().isLoadingAi).toBe(false);
+    expect(useDashboardStore.getState().aiSummary).toContain("Gagal memuat ringkasan bisnis AI");
   });
 });

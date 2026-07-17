@@ -5,8 +5,12 @@ import {
   TextInput,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   Platform,
   KeyboardAvoidingView,
+  Modal,
+  FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -29,13 +33,21 @@ export default function InputPembeliScreen() {
 
   // Form State Data initialized from route params (supports AI Voice pre-fill)
   const [buyerName, setBuyerName] = useState((params.buyer_name as string) || "");
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [showBuyerModal, setShowBuyerModal] = useState(false);
   const [fishName, setFishName] = useState((params.jenis_ikan as string) || "");
-  const [showFishDropdown, setShowFishDropdown] = useState(false);
+  const [showFishModal, setShowFishModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchFishQuery, setSearchFishQuery] = useState("");
+
+  // New buyer modal states
+  const [showNewBuyerModal, setShowNewBuyerModal] = useState(false);
+  const [newBuyerName, setNewBuyerName] = useState("");
+  const [newBuyerPhone, setNewBuyerPhone] = useState("");
+  const [isSavingBuyer, setIsSavingBuyer] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [quantity, setQuantity] = useState((params.berat as string) || "");
   const [sellPrice, setSellPrice] = useState((params.harga_jual_per_kg as string) || "");
   const [paymentMethod, setPaymentMethod] = useState<"lunas" | "tempo">((params.status_bayar as "lunas" | "tempo") || "lunas");
-  const [showSuccess, setShowSuccess] = useState(false);
 
   // Voice AI Modal state
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -89,9 +101,11 @@ export default function InputPembeliScreen() {
     }
   }, [fishName, fishStocks, sellPrice]);
 
+
+
   // Filter customers for dropdown search
   const filteredCustomers = buyers.filter((b) =>
-    b.nama.toLowerCase().includes(buyerName.toLowerCase())
+    b.nama.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Filter unique fish types in stock for dropdown search
@@ -102,19 +116,44 @@ export default function InputPembeliScreen() {
   });
 
   const filteredFishStocks = uniqueStockFish.filter((fs) =>
-    fs.fish_type.name.toLowerCase().includes(fishName.toLowerCase())
+    fs.fish_type.name.toLowerCase().includes(searchFishQuery.toLowerCase())
   );
 
   // Auto-fill logic when selecting an existing customer
   const handleSelectCustomer = (custName: string) => {
     setBuyerName(custName);
-    setShowDropdown(false);
+    setShowBuyerModal(false);
   };
 
   const handleSelectFish = (stockItem: FishStock) => {
     setFishName(stockItem.fish_type.name);
     setSellPrice(String(stockItem.sell_price || stockItem.buy_price));
-    setShowFishDropdown(false);
+    setShowFishModal(false);
+  };
+
+  const handleCreateBuyer = async () => {
+    if (!newBuyerName.trim()) {
+      alert("Nama pembeli wajib diisi");
+      return;
+    }
+
+    setIsSavingBuyer(true);
+    try {
+      const created = await addBuyer({
+        nama: newBuyerName.trim(),
+        telepon: newBuyerPhone.trim() || undefined,
+        tipe_pembeli: "perorangan",
+      });
+      setBuyerName(created.nama);
+      setShowNewBuyerModal(false);
+      setShowBuyerModal(false);
+      setNewBuyerName("");
+      setNewBuyerPhone("");
+    } catch (err) {
+      alert("Gagal menambahkan pembeli");
+    } finally {
+      setIsSavingBuyer(false);
+    }
   };
 
   const calculateTotal = () => {
@@ -228,169 +267,67 @@ export default function InputPembeliScreen() {
           {/* Card Form */}
           <View style={SharedStyles.formCard}>
             
-            {/* Buyer Name Input with Autocomplete Dropdown */}
-            <View style={{ marginBottom: 16, zIndex: 10 }}>
+            {/* Buyer Name Input Selector Modal style */}
+            <View style={{ marginBottom: 16 }}>
               <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "600", marginBottom: 8 }}>
                 Nama Pembeli *
               </Text>
-              <View style={{ position: "relative" }}>
-                <TextInput
-                  style={{
-                    height: 46,
-                    backgroundColor: "#e5eaf7",
-                    borderRadius: 12,
-                    paddingHorizontal: 14,
-                    fontSize: 14,
-                    color: "#00072d",
-                    borderWidth: errors.buyerName ? 1 : 0,
-                    borderColor: "#ef4444",
-                  }}
-                  placeholder="Ketik nama pembeli..."
-                  placeholderTextColor="#64748b"
-                  value={buyerName}
-                  onChangeText={(txt) => {
-                    setBuyerName(txt);
-                    setShowDropdown(true);
-                  }}
-                  onFocus={() => setShowDropdown(true)}
-                />
-                
-                {showDropdown && filteredCustomers.length > 0 && (
-                  <View
-                    style={{
-                      position: "absolute",
-                      top: 50,
-                      left: 0,
-                      right: 0,
-                      backgroundColor: "#ffffff",
-                      borderRadius: radius(12),
-                      borderWidth: 1.5,
-                      borderColor: Colors.royalBlue,
-                      maxHeight: 200,
-                      overflow: "hidden",
-                      elevation: 8,
-                      shadowColor: Colors.navy,
-                      shadowOffset: { width: 0, height: 6 },
-                      shadowOpacity: 0.15,
-                      shadowRadius: 10,
-                      zIndex: 9999,
-                    }}
-                  >
-                    <ScrollView keyboardShouldPersistTaps="handled">
-                      {filteredCustomers.map((cust) => (
-                        <Pressable
-                          key={cust.id}
-                          onPress={() => handleSelectCustomer(cust.nama)}
-                          style={({ pressed }) => ({
-                            flexDirection: "row",
-                            alignItems: "center",
-                            paddingVertical: spacing(12),
-                            paddingHorizontal: spacing(16),
-                            borderBottomWidth: 1,
-                            borderBottomColor: "#e5eaf7",
-                            backgroundColor: pressed ? "#e5eaf7" : "#ffffff",
-                          })}
-                        >
-                          <Ionicons name="person-circle-outline" size={20} color={Colors.royalBlue} style={{ marginRight: 10 }} />
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ color: Colors.textPrimary, fontSize: rfs(14), fontWeight: "600" }}>
-                              {cust.nama}
-                            </Text>
-                            {cust.telepon ? (
-                              <Text style={{ color: Colors.textMuted, fontSize: rfs(11), marginTop: 2 }}>
-                                {cust.telepon}
-                              </Text>
-                            ) : null}
-                          </View>
-                        </Pressable>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchQuery("");
+                  setShowBuyerModal(true);
+                }}
+                activeOpacity={0.7}
+                style={{
+                  height: 48,
+                  backgroundColor: "#e5eaf7",
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderWidth: errors.buyerName ? 1 : 0,
+                  borderColor: "#ef4444",
+                }}
+              >
+                <Text style={{ color: buyerName ? "#00072d" : "#64748b", fontSize: 14 }}>
+                  {buyerName || "Pilih Pembeli"}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#64748b" />
+              </TouchableOpacity>
               {errors.buyerName && (
                 <Text style={{ color: "#ef4444", fontSize: 11, marginTop: 4 }}>{errors.buyerName}</Text>
               )}
             </View>
 
-            {/* Product selection (Ikan Apa) as TextInput */}
-            <View style={{ marginBottom: 16, zIndex: 9 }}>
+            {/* Product selection (Ikan Apa) Selector Modal style */}
+            <View style={{ marginBottom: 16 }}>
               <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "600", marginBottom: 8 }}>
                 Ikan Apa / Produk *
               </Text>
-              <View style={{ position: "relative" }}>
-                <TextInput
-                  style={{
-                    height: 46,
-                    backgroundColor: "#e5eaf7",
-                    borderRadius: 12,
-                    paddingHorizontal: 14,
-                    fontSize: 14,
-                    color: "#00072d",
-                    borderWidth: errors.fishName ? 1 : 0,
-                    borderColor: "#ef4444",
-                  }}
-                  placeholder="Contoh: Tongkol, Kembung, Tuna"
-                  placeholderTextColor="#64748b"
-                  value={fishName}
-                  onChangeText={(txt) => {
-                    setFishName(txt);
-                    setShowFishDropdown(true);
-                  }}
-                  onFocus={() => setShowFishDropdown(true)}
-                />
-                
-                {showFishDropdown && filteredFishStocks.length > 0 && (
-                  <View
-                    style={{
-                      position: "absolute",
-                      top: 50,
-                      left: 0,
-                      right: 0,
-                      backgroundColor: "#ffffff",
-                      borderRadius: radius(12),
-                      borderWidth: 1.5,
-                      borderColor: Colors.royalBlue,
-                      maxHeight: 200,
-                      overflow: "hidden",
-                      elevation: 8,
-                      shadowColor: Colors.navy,
-                      shadowOffset: { width: 0, height: 6 },
-                      shadowOpacity: 0.15,
-                      shadowRadius: 10,
-                      zIndex: 9999,
-                    }}
-                  >
-                    <ScrollView keyboardShouldPersistTaps="handled">
-                      {filteredFishStocks.map((stock) => (
-                        <Pressable
-                          key={stock.id}
-                          onPress={() => handleSelectFish(stock)}
-                          style={({ pressed }) => ({
-                            flexDirection: "row",
-                            alignItems: "center",
-                            paddingVertical: spacing(12),
-                            paddingHorizontal: spacing(16),
-                            borderBottomWidth: 1,
-                            borderBottomColor: "#e5eaf7",
-                            backgroundColor: pressed ? "#e5eaf7" : "#ffffff",
-                          })}
-                        >
-                          <Ionicons name="fish-outline" size={20} color={Colors.royalBlue} style={{ marginRight: 10 }} />
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ color: Colors.textPrimary, fontSize: rfs(14), fontWeight: "600" }}>
-                              Ikan {stock.fish_type.name}
-                            </Text>
-                            <Text style={{ color: Colors.textMuted, fontSize: rfs(11), marginTop: 2 }}>
-                              Stok: {formatWeight(Number(stock.quantity))} | Harga Beli: {formatCurrency(Number(stock.buy_price))}/Kg
-                            </Text>
-                          </View>
-                        </Pressable>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchFishQuery("");
+                  setShowFishModal(true);
+                }}
+                activeOpacity={0.7}
+                style={{
+                  height: 48,
+                  backgroundColor: "#e5eaf7",
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderWidth: errors.fishName ? 1 : 0,
+                  borderColor: "#ef4444",
+                }}
+              >
+                <Text style={{ color: fishName ? "#00072d" : "#64748b", fontSize: 14 }}>
+                  {fishName ? `Ikan ${fishName}` : "Pilih Ikan / Produk"}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#64748b" />
+              </TouchableOpacity>
               {errors.fishName && (
                 <Text style={{ color: "#ef4444", fontSize: 11, marginTop: 4 }}>{errors.fishName}</Text>
               )}
@@ -704,57 +641,45 @@ export default function InputPembeliScreen() {
                 {formatCurrency(calculateTotal())}
               </Text>
             </View>
+            {/* Action Buttons (Row Layout) */}
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
+              <TouchableOpacity
+                onPress={() => setShowVoiceModal(true)}
+                activeOpacity={0.7}
+                style={{
+                  width: 50,
+                  height: 50,
+                  borderRadius: 12,
+                  backgroundColor: "#dce6ff",
+                  borderWidth: 2,
+                  borderColor: "#123499",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="mic" size={24} color="#123499" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleSave}
+                activeOpacity={0.7}
+                style={{
+                  flex: 1,
+                  height: 50,
+                  backgroundColor: "#123499",
+                  borderRadius: 12,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  elevation: 3,
+                }}
+              >
+                <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "bold" }}>
+                  Simpan
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
-
-        {/* Sticky Bottom Action Buttons */}
-        <View
-          style={{
-            backgroundColor: "#ffffff",
-            paddingHorizontal: spacing(16),
-            paddingVertical: spacing(12),
-            borderTopWidth: 1.5,
-            borderTopColor: "rgba(18, 52, 153, 0.1)",
-            gap: 10,
-            ...Shadow.card,
-          }}
-        >
-          <Pressable
-            onPress={handleSave}
-            style={({ pressed }) => ({
-              height: 48,
-              backgroundColor: pressed ? Colors.navyLight : Colors.navy,
-              borderRadius: radius(12),
-              alignItems: "center",
-              justifyContent: "center",
-              ...Shadow.button,
-            })}
-          >
-            <Text style={{ color: "#ffffff", fontSize: rfs(15), fontWeight: "bold" }}>
-              Simpan Transaksi
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setShowVoiceModal(true)}
-            style={({ pressed }) => ({
-              height: 48,
-              backgroundColor: pressed ? "rgba(43, 120, 228, 0.2)" : "rgba(43, 120, 228, 0.1)",
-              borderRadius: radius(12),
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 1,
-              borderColor: "rgba(43, 120, 228, 0.25)",
-              flexDirection: "row",
-              gap: 8,
-            })}
-          >
-            <Ionicons name="mic" size={20} color={Colors.royalBlue} />
-            <Text style={{ color: Colors.royalBlue, fontSize: rfs(15), fontWeight: "bold" }}>
-              Input via Suara (AI)
-            </Text>
-          </Pressable>
-        </View>
 
         {/* Success Modal Overlay */}
         {showSuccess && (
@@ -802,6 +727,245 @@ export default function InputPembeliScreen() {
             </View>
           </View>
         )}
+        {/* MODAL: SELECT BUYER */}
+        <Modal visible={showBuyerModal} transparent animationType="slide">
+          <View style={{ flex: 1, backgroundColor: "rgba(0, 7, 45, 0.5)", justifyContent: "flex-end" }}>
+            <View style={{
+              height: "75%",
+              backgroundColor: "#ffffff",
+              borderTopLeftRadius: 30,
+              borderTopRightRadius: 30,
+              padding: 20,
+            }}>
+              {/* Header */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <Text style={{ color: "#00072d", fontSize: 18, fontWeight: "bold" }}>Pilih Pembeli</Text>
+                <Pressable onPress={() => setShowBuyerModal(false)}>
+                  <Ionicons name="close-circle" size={26} color="#64748b" />
+                </Pressable>
+              </View>
+
+              {/* Add New Button */}
+              <TouchableOpacity
+                onPress={() => setShowNewBuyerModal(true)}
+                activeOpacity={0.7}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "rgba(43, 120, 228, 0.08)",
+                  height: 46,
+                  borderRadius: 12,
+                  marginBottom: 16,
+                  borderWidth: 1.5,
+                  borderColor: Colors.royalBlue,
+                  borderStyle: "dashed",
+                }}
+              >
+                <Ionicons name="person-add" size={16} color={Colors.royalBlue} style={{ marginRight: 8 }} />
+                <Text style={{ color: Colors.royalBlue, fontWeight: "bold", fontSize: 13 }}>Tambah Pembeli Baru</Text>
+              </TouchableOpacity>
+
+              {/* Search Bar */}
+              <View style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "#f0f4f9",
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                height: 42,
+                marginBottom: 16,
+              }}>
+                <Ionicons name="search" size={16} color="#64748b" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={{ flex: 1, height: "100%", color: "#00072d", fontSize: 13 }}
+                  placeholder="Cari pembeli..."
+                  placeholderTextColor="#64748b"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+              </View>
+
+              <FlatList
+                data={filteredCustomers}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={() => handleSelectCustomer(item.nama)}
+                    activeOpacity={0.7}
+                    style={{
+                      backgroundColor: "transparent",
+                      paddingVertical: 14,
+                      paddingHorizontal: 6,
+                      borderBottomWidth: 1,
+                      borderBottomColor: "#e5eaf7",
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <View>
+                      <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "bold" }}>{item.nama}</Text>
+                      <Text style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>{item.telepon || "No Telepon tidak ada"}</Text>
+                    </View>
+                    {buyerName === item.nama && (
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+                    )}
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <Text style={{ textAlign: "center", color: "#64748b", marginTop: 40, fontSize: 13 }}>
+                    Pembeli tidak ditemukan.
+                  </Text>
+                }
+              />
+            </View>
+          </View>
+        </Modal>
+
+        {/* MODAL: CREATE NEW BUYER */}
+        <Modal visible={showNewBuyerModal} transparent animationType="fade">
+          <View style={{ flex: 1, backgroundColor: "rgba(0, 7, 45, 0.7)", justifyContent: "center", alignItems: "center", padding: 20 }}>
+            <View style={{ width: "100%", maxWidth: 330, backgroundColor: "#ffffff", borderRadius: 24, padding: 22, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 15, elevation: 8 }}>
+              
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                <Text style={{ color: "#00072d", fontSize: 17, fontWeight: "bold" }}>Tambah Pembeli Baru</Text>
+                <Pressable onPress={() => setShowNewBuyerModal(false)}>
+                  <Ionicons name="close" size={24} color="#00072d" />
+                </Pressable>
+              </View>
+
+              {/* Name */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 6 }}>Nama Pembeli *</Text>
+                <TextInput
+                  style={{ height: 44, backgroundColor: "#e5eaf7", borderRadius: 12, paddingHorizontal: 14, fontSize: 14, color: "#00072d" }}
+                  placeholder="Nama pembeli"
+                  placeholderTextColor="#64748b"
+                  value={newBuyerName}
+                  onChangeText={setNewBuyerName}
+                />
+              </View>
+
+              {/* Phone */}
+              <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 6 }}>No. HP / Telepon</Text>
+                <TextInput
+                  style={{ height: 44, backgroundColor: "#e5eaf7", borderRadius: 12, paddingHorizontal: 14, fontSize: 14, color: "#00072d" }}
+                  placeholder="Contoh: 08123"
+                  placeholderTextColor="#64748b"
+                  keyboardType="phone-pad"
+                  value={newBuyerPhone}
+                  onChangeText={setNewBuyerPhone}
+                />
+              </View>
+
+              {/* Actions */}
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <TouchableOpacity
+                  disabled={isSavingBuyer}
+                  onPress={() => setShowNewBuyerModal(false)}
+                  activeOpacity={0.7}
+                  style={{ flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: "#051650", alignItems: "center", justifyContent: "center" }}
+                >
+                  <Text style={{ color: "#051650", fontWeight: "bold", fontSize: 13 }}>Batal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  disabled={isSavingBuyer}
+                  onPress={handleCreateBuyer}
+                  activeOpacity={0.7}
+                  style={{ flex: 1, height: 44, backgroundColor: "#123499", borderRadius: 12, alignItems: "center", justifyContent: "center" }}
+                >
+                  {isSavingBuyer ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={{ color: "#ffffff", fontWeight: "bold", fontSize: 13 }}>Simpan</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* MODAL: SELECT FISH/PRODUCT */}
+        <Modal visible={showFishModal} transparent animationType="slide">
+          <View style={{ flex: 1, backgroundColor: "rgba(0, 7, 45, 0.5)", justifyContent: "flex-end" }}>
+            <View style={{
+              height: "75%",
+              backgroundColor: "#ffffff",
+              borderTopLeftRadius: 30,
+              borderTopRightRadius: 30,
+              padding: 20,
+            }}>
+              {/* Header */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <Text style={{ color: "#00072d", fontSize: 18, fontWeight: "bold" }}>Pilih Ikan / Produk</Text>
+                <Pressable onPress={() => setShowFishModal(false)}>
+                  <Ionicons name="close-circle" size={26} color="#64748b" />
+                </Pressable>
+              </View>
+
+              {/* Search Bar */}
+              <View style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "#f0f4f9",
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                height: 42,
+                marginBottom: 16,
+              }}>
+                <Ionicons name="search" size={16} color="#64748b" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={{ flex: 1, height: "100%", color: "#00072d", fontSize: 13 }}
+                  placeholder="Cari ikan..."
+                  placeholderTextColor="#64748b"
+                  value={searchFishQuery}
+                  onChangeText={setSearchFishQuery}
+                />
+              </View>
+
+              <FlatList
+                data={filteredFishStocks}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={() => handleSelectFish(item)}
+                    activeOpacity={0.7}
+                    style={{
+                      backgroundColor: "transparent",
+                      paddingVertical: 14,
+                      paddingHorizontal: 6,
+                      borderBottomWidth: 1,
+                      borderBottomColor: "#e5eaf7",
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "bold" }}>Ikan {item.fish_type.name}</Text>
+                      <Text style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>
+                        Stok: {formatWeight(Number(item.quantity))} | Harga Beli: {formatCurrency(Number(item.buy_price))}/Kg
+                      </Text>
+                    </View>
+                    {fishName === item.fish_type.name && (
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+                    )}
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <Text style={{ textAlign: "center", color: "#64748b", marginTop: 40, fontSize: 13 }}>
+                    Stok ikan tidak ditemukan atau kosong.
+                  </Text>
+                }
+              />
+            </View>
+          </View>
+        </Modal>
+
       </KeyboardAvoidingView>
 
       <VoiceInputModal

@@ -49,6 +49,10 @@ export const dashboardApi = {
     const res = await apiClient.get("/dashboard/summary");
     return unwrap<DashboardSummary>(res);
   },
+  aiSummary: async () => {
+    const res = await apiClient.get("/dashboard/ai-summary");
+    return unwrap<{ summary: string }>(res);
+  },
 };
 
 // ─── BATCHES (Stok Gudang) ────────────────────────────────────────────────
