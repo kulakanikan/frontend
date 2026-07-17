@@ -27,6 +27,11 @@ export const API = {
   RETRY_COUNT: 3,
 };
 
+export const GOOGLE_OAUTH = {
+  ANDROID_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? "",
+  WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "",
+} as const;
+
 /**
  * Storage Keys
  * Centralize all AsyncStorage / SecureStore key names.

@@ -8,9 +8,10 @@ import {
   Modal,
   TextInput,
   Platform,
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useFishStore } from "../../src/store";
 import { FishStock } from "../../src/types";
@@ -19,7 +20,23 @@ import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../../src/ut
 
 export default function StockTab() {
   const router = useRouter();
-  const { fishStocks, editStock, deleteStock, addAddonToStock } = useFishStore();
+  const { fishStocks, fetchStocks, editStock, deleteStock, addAddonToStock } = useFishStore();
+
+  const [activeFilter, setActiveFilter] = React.useState("semua");
+
+  // Fetch stocks when focused, respecting selected filter
+  useFocusEffect(
+    React.useCallback(() => {
+      const filterParam = activeFilter === "semua" ? undefined : activeFilter;
+      fetchStocks({ status: filterParam }).catch((err) => console.error("Failed to load stocks:", err));
+    }, [fetchStocks, activeFilter])
+  );
+
+  const handleFilterChange = (status: string) => {
+    setActiveFilter(status);
+    const filterParam = status === "semua" ? undefined : status;
+    fetchStocks({ status: filterParam }).catch((err) => console.error(err));
+  };
 
   // Math stats
   const totalQuantity = fishStocks.reduce((sum, item) => sum + item.quantity, 0);
@@ -226,9 +243,29 @@ export default function StockTab() {
             <View style={{ width: 40, height: 4, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 2 }} />
           </View>
 
-          <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(24) }]}>
+  <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(24) }]}>
             <Text style={{ color: "#ffffff", fontSize: rfs(18), fontWeight: "bold" }}>Inventaris Tersedia</Text>
-            <Ionicons name="funnel" size={iconSize(20)} color="#ffffff" />
+            <View style={{ flexDirection: "row", gap: spacing(6) }}>
+              {["semua", "aktif", "habis"].map((statusOption) => {
+                const isSelected = activeFilter === statusOption;
+                return (
+                  <TouchableOpacity
+                    key={statusOption}
+                    onPress={() => handleFilterChange(statusOption)}
+                    style={{
+                      backgroundColor: isSelected ? Colors.royalBlue : "rgba(255,255,255,0.1)",
+                      paddingHorizontal: spacing(10),
+                      paddingVertical: spacing(5),
+                      borderRadius: radius(10),
+                    }}
+                  >
+                    <Text style={{ color: "#ffffff", fontSize: rfs(11), fontWeight: "bold", textTransform: "capitalize" }}>
+                      {statusOption}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
 
           {/* Action Helper Note inside dark sheet */}
@@ -270,11 +307,9 @@ export default function StockTab() {
                       <Text style={{ color: "#ffffff", fontSize: rfs(16), fontWeight: "bold", marginBottom: 2 }} numberOfLines={1}>
                         {item.fish_type.name}
                       </Text>
-                      {item.notes ? (
-                        <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: rfs(11) }} numberOfLines={1}>
-                          {item.notes}
-                        </Text>
-                      ) : null}
+                      <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: rfs(11) }} numberOfLines={1}>
+                        Nelayan: {item.supplier_name || "Pemasok Umum"}{item.notes ? ` • ${item.notes}` : ""}
+                      </Text>
                     </View>
                   </View>
                   <View style={{ backgroundColor: "rgba(255,255,255,0.15)", paddingHorizontal: spacing(10), paddingVertical: spacing(6), borderRadius: radius(12) }}>

@@ -1,0 +1,124 @@
+- [x] **Task 1.1: Verifikasi & Test `api-client.ts`**
+  - [x] Write unit tests for `api-client` request and response interceptors
+  - [x] Implement/Update `api-client.ts` to attach token, timeout, and handle 401 logout
+  - [x] Run `bun test` to verify success
+- [x] **Task 1.2: Verifikasi & Test `auth-store.ts`**
+  - [x] Write unit tests for `auth-store` session initialization and logout
+  - [x] Verify `loadStoredAuth` and `logout` match requirements
+  - [x] Run `bun test` to verify success
+- [x] **Task 1.3: Auth Guard di `_layout.tsx`**
+  - [x] Verify root layout stack rendering is unconditional
+  - [x] Verify `useSegments` + `useEffect` redirect logic is fully functional
+- [x] **Task 1.4: Environment Config**
+  - [x] Verify `.env` file structure and correct values
+
+- [x] **Task 2.1: Store untuk Profile (`profile-store.ts`)**
+  - [x] Write unit tests for `profile-store` actions (`fetchProfile`, `updateProfile`)
+  - [x] Implement `profile-store.ts` Zustand store
+  - [x] Sync update changes automatically to `auth-store` user state
+  - [x] Verify tests pass using `bun test`
+- [x] **Task 2.2: Wire `profile.tsx`**
+  - [x] Fetch profile data dynamically on mount/focus
+  - [x] Remove mock data, show real business name and WhatsApp number
+  - [x] Show Google email and avatar safely
+- [x] **Task 2.3: Wire `edit-profile.tsx`**
+  - [x] Pre-fill inputs with profile store data
+  - [x] Input validation (only numbers for phone, minimum 9 characters)
+  - [x] Button loading indicator when saving
+
+- [x] **Task 3.1: Store untuk Dashboard (`dashboard-store.ts`)**
+  - [x] Write unit tests for `dashboard-store` action (`fetchSummary`)
+  - [x] Implement `dashboard-store.ts` Zustand store
+  - [x] Verify tests pass using `bun test`
+- [x] **Task 3.2: Wire Dashboard Screen (`index.tsx`)**
+  - [x] Fetch summary data dynamically on focus via `useFocusEffect`
+  - [x] Display real omzet, laba bersih, stok gudang, and piutang tempo
+  - [x] Render warning/alert style on piutang card if piutang > 0
+  - [x] Render "Batch Paling Menguntungkan" list using real top batch data
+
+- [x] **Task 4.1: Store untuk Supplier (`supplier-store.ts`)**
+  - [x] Write unit tests for `supplier-store` CRUD actions
+  - [x] Implement `supplier-store.ts` Zustand store
+  - [x] Verify tests pass using `bun test`
+- [x] **Task 4.2: Perbaiki Mapping di `fish-store.ts`**
+  - [x] Set default `sell_price` to 0 (no mock multiplier)
+  - [x] Add filter parameters to `fetchStocks` action
+  - [x] Implement `fetchStockDetail` to fetch full batch info and map expenses to local addons
+  - [x] Map `supplier_name` from API join payload in `mapBatchToStock`
+  - [x] Verify updates using unit tests
+- [x] **Task 4.3: Wire `stock.tsx`**
+  - [x] Fetch stocks on focus via `useFocusEffect`
+  - [x] Render filter status chips (Semua, Aktif, Habis) and query accordingly
+  - [x] Display real supplier name on item cards
+- [x] **Task 4.4: Wire `input-barang.tsx`**
+  - [x] Fetch supplier list and render search/picker dropdown
+  - [x] Add "Tambah Nelayan Baru" action with popup form modal
+  - [x] Pre-fill form from route parameters (supports AI voice input integration)
+  - [x] Require supplier selection before form submission
+
+- [x] **Task 5.1: Store untuk Transaksi (`transaction-store.ts`)**
+  - [x] Write unit tests for `transaction-store` actions (`fetchSales`, `fetchSaleDetail`, `createSale`, `addPayment`)
+  - [x] Implement `transaction-store.ts` Zustand store
+  - [x] Verify tests pass using `bun test`
+- [x] **Task 5.2: Perbaiki Mapping `mapSaleToTransaction`**
+  - [x] Update mapping logic to support detailed payment amounts dynamically from API
+- [x] **Task 5.3: Wire `transactions.tsx`**
+  - [x] Fetch sales on focus via `useFocusEffect`
+  - [x] Render filter payment status chips (Semua, Lunas, Tempo) and query accordingly
+  - [x] Wire detail modal to load specific sale details on click
+- [x] **Task 5.4: Detail Transaksi + Cicilan**
+  - [x] Render buyer info, fish details, and extras
+  - [x] Render payment history list and payment progress bar
+  - [x] Render form to pay debt instalments (nominal + method select) for Tempo sales
+  - [x] Wire shortcut link to receipt structure screen
+
+- [x] **Task 6.1: Store untuk Pembeli (`buyer-store.ts`)**
+  - [x] Write unit tests for `buyer-store` actions (`fetchBuyers`, `addBuyer`, `updateBuyer`)
+  - [x] Implement `buyer-store.ts` Zustand store
+  - [x] Verify tests pass using `bun test`
+- [x] **Task 6.2: Wire `input-pembeli.tsx`**
+  - [x] Fetch buyer list and show search autocomplete recommendations to prevent duplicates
+  - [x] Auto-create new buyer if name typed doesn't exist when submitting transaction
+  - [x] Enforce fish stock checking from gudang and require stock selection
+- [x] **Task 6.3: Wire `buyer-history.tsx`**
+  - [x] Fetch buyers list from buyer-store on focus
+  - [x] Render search filter box for buyers list
+  - [x] Implement buyer detail view: load sales list for buyer, compute total purchases and remaining debt
+  - [x] Render edit buyer modal (name, phone, type selector) and apply phone +62 format prefix
+  - [x] Preserve cetak nota receipt print and PDF sharing capability
+
+- [x] **Task 7.1: Screen Struk Digital**
+  - [x] Create digital receipt screen file `app/receipts/[id].tsx`
+  - [x] Fetch receipt details from API `/receipts/:id` and display penjual business name from store
+  - [x] Implement monospace formatting layout card for products, extras, totals, and payment status
+  - [x] Add closing close button to transactions screen
+- [x] **Task 7.2: Navigasi ke Struk**
+  - [x] Redirect checkout screen to `receipts/[id]` upon successful transaction submission
+  - [x] Update transactions history details modal to correctly link to `receipts/[id]` via receipt ID
+- [x] **Task 7.3: WhatsApp Integration**
+  - [x] Implement green WhatsApp share button calling `POST /receipts/:id/send-wa`
+  - [x] Open WhatsApp deep link using `Linking.openURL`
+  - [x] Render manual telephone input form if buyer has no registered phone number
+
+- [x] **Task 8.1: Install & Configure Library**
+  - [x] Install `@react-native-google-signin/google-signin` library
+  - [x] Configure config plugin details in `app.json`
+- [x] **Task 8.2: Configure Google Sign-In**
+  - [x] Create config helper module `src/lib/google-signin.ts`
+  - [x] Trigger `configureGoogleSignin` initialization during root `RootLayout` mounting
+- [x] **Task 8.3: Ganti Hook di `login.tsx`**
+  - [x] Replace `expo-auth-session` imports and hook calls in `login.tsx`
+  - [x] Update `handleGoogleLogin` to call native Google Sign-in client on production and devLogin bypass on dev
+- [x] **Task 8.5: Session Persistence**
+  - [x] Implement Google native Sign-out & Revoke access safety calls in auth-store logout
+
+- [x] **Task 9.1: Tambahkan `voiceApi` ke Service Layer**
+  - [x] Implement `voiceApi` in `src/services/api.ts` with `/voice/parse` call
+  - [x] Write `voice-api.test.ts` unit tests and verify success
+- [x] **Task 9.2: Buat Screen `tambah.tsx` (Voice Assistant UI)**
+  - [x] Create app/(tabs)/tambah.tsx with category selector, transcript input, pulsing mic, sample prompts, and Gemini loading overlay
+- [x] **Task 9.3: Wiring ke Form Screens (Pre-fill Integration)**
+  - [x] Wire pre-fill route params in `input-barang.tsx` (Stok Masuk)
+  - [x] Wire pre-fill route params and auto-select price in `input-pembeli.tsx` (Penjualan / Checkout)
+  - [x] Implement Tambah Pelanggan Baru trigger and modal in `buyer-history.tsx` (Pelanggan)
+  - [x] Adjust `CustomTabBar.tsx` to directly navigate to voice assistant tab

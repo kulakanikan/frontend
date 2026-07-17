@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,45 +6,71 @@ import {
   ScrollView,
   Pressable,
   Platform,
-  SafeAreaView,
   KeyboardAvoidingView,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../src/utils/responsive";
 import { Colors, Type, Shadow, SharedStyles } from "../src/constants/theme";
-import { useFishStore } from "../src/store";
-import { FishStock, TransactionItem } from "../src/types";
+import { useFishStore, useBuyerStore, useTransactionStore } from "../src/store";
+import { FishStock } from "../src/types";
+import { formatCurrency, formatWeight } from "../src/utils";
+import VoiceInputModal from "../src/components/VoiceInputModal";
 
 export default function InputPembeliScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   
-  // Zustand Store
-  const { fishStocks, customers, transactions, addCustomer, addTransaction, addStock } = useFishStore();
+  // Zustand Stores
+  const { fishStocks, fetchStocks } = useFishStore();
+  const { buyers, fetchBuyers, addBuyer } = useBuyerStore();
+  const { createSale } = useTransactionStore();
 
-  // Form State Data
-  const [buyerName, setBuyerName] = useState("");
+  // Form State Data initialized from route params (supports AI Voice pre-fill)
+  const [buyerName, setBuyerName] = useState((params.buyer_name as string) || "");
   const [showDropdown, setShowDropdown] = useState(false);
-  const [fishName, setFishName] = useState("");
+  const [fishName, setFishName] = useState((params.jenis_ikan as string) || "");
   const [showFishDropdown, setShowFishDropdown] = useState(false);
-  const [quantity, setQuantity] = useState("");
-  const [sellPrice, setSellPrice] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"lunas" | "tempo">("lunas");
+  const [quantity, setQuantity] = useState((params.berat as string) || "");
+  const [sellPrice, setSellPrice] = useState((params.harga_jual_per_kg as string) || "");
+  const [paymentMethod, setPaymentMethod] = useState<"lunas" | "tempo">((params.status_bayar as "lunas" | "tempo") || "lunas");
   const [showSuccess, setShowSuccess] = useState(false);
-  const [isListening, setIsListening] = useState(false);
+
+  // Voice AI Modal state
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
 
   // Form validations
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Filter customers for dropdown search
-  const uniquePurchasingCustomers = Array.from(
-    new Set(transactions.map((tx) => tx.customer_name))
-  ).map((name) => {
-    return customers.find((c) => c.name === name) || { id: name, name, phone: "" };
-  });
+  const handleVoiceSuccess = (suggestion: any) => {
+    if (suggestion.nama_pembeli) setBuyerName(suggestion.nama_pembeli);
+    if (suggestion.jenis_ikan) setFishName(suggestion.jenis_ikan);
+    if (suggestion.berat_jual !== null) setQuantity(String(suggestion.berat_jual));
+    if (suggestion.harga_satuan !== null) setSellPrice(String(suggestion.harga_satuan));
+    if (suggestion.status_bayar) setPaymentMethod(suggestion.status_bayar === "tempo" ? "tempo" : "lunas");
+  };
 
-  const filteredCustomers = uniquePurchasingCustomers.filter((c) =>
-    c.name.toLowerCase().includes(buyerName.toLowerCase())
+  useEffect(() => {
+    fetchStocks().catch((err) => console.error(err));
+    fetchBuyers().catch((err) => console.error(err));
+  }, [fetchStocks, fetchBuyers]);
+
+  // Auto-set price if fishName is pre-filled from Voice but price was not parsed
+  useEffect(() => {
+    if (fishName && fishStocks.length > 0 && !sellPrice) {
+      const match = fishStocks.find(
+        (fs) => fs.fish_type.name.toLowerCase() === fishName.toLowerCase()
+      );
+      if (match) {
+        setSellPrice(String(match.sell_price || match.buy_price));
+      }
+    }
+  }, [fishName, fishStocks, sellPrice]);
+
+  // Filter customers for dropdown search
+  const filteredCustomers = buyers.filter((b) =>
+    b.nama.toLowerCase().includes(buyerName.toLowerCase())
   );
 
   // Filter unique fish types in stock for dropdown search
@@ -62,24 +88,11 @@ export default function InputPembeliScreen() {
   const handleSelectCustomer = (custName: string) => {
     setBuyerName(custName);
     setShowDropdown(false);
-
-    // Find last transaction for this customer
-    const lastTx = transactions.find(
-      (tx) => tx.customer_name.toLowerCase() === custName.toLowerCase()
-    );
-
-    if (lastTx && lastTx.items.length > 0) {
-      const lastItem = lastTx.items[0];
-      setFishName(lastItem.fish_name);
-      setQuantity(String(lastItem.quantity));
-      setSellPrice(String(lastItem.unit_price));
-      setPaymentMethod(lastTx.payment_status === "paid" ? "lunas" : "tempo");
-    }
   };
 
   const handleSelectFish = (stockItem: FishStock) => {
     setFishName(stockItem.fish_type.name);
-    setSellPrice(String(stockItem.sell_price));
+    setSellPrice(String(stockItem.sell_price || stockItem.buy_price));
     setShowFishDropdown(false);
   };
 
@@ -93,11 +106,26 @@ export default function InputPembeliScreen() {
     const newErrors: Record<string, string> = {};
     if (!buyerName.trim()) newErrors.buyerName = "Nama pembeli wajib diisi";
     if (!fishName.trim()) newErrors.fishName = "Nama ikan wajib diisi";
-    if (!quantity.trim() || isNaN(Number(quantity)) || Number(quantity) <= 0) {
+    
+    const qtyNum = Number(quantity);
+    if (!quantity.trim() || isNaN(qtyNum) || qtyNum <= 0) {
       newErrors.quantity = "Total berat ikan harus berupa angka lebih dari 0";
     }
-    if (!sellPrice.trim() || isNaN(Number(sellPrice)) || Number(sellPrice) <= 0) {
+
+    const priceNum = Number(sellPrice);
+    if (!sellPrice.trim() || isNaN(priceNum) || priceNum <= 0) {
       newErrors.sellPrice = "Harga per Kg wajib diisi";
+    }
+
+    // Match fish stock to get its batch UUID
+    const matchedFish = fishStocks.find(
+      (fs) => fs.fish_type.name.toLowerCase() === fishName.trim().toLowerCase()
+    );
+
+    if (!matchedFish) {
+      newErrors.fishName = "Ikan wajib dipilih dari stok tersedia di gudang";
+    } else if (matchedFish.quantity < qtyNum) {
+      newErrors.quantity = `Stok di gudang tidak mencukupi (Tersedia: ${matchedFish.quantity} Kg)`;
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -107,81 +135,45 @@ export default function InputPembeliScreen() {
 
     setErrors({});
 
-    // Check if customer already exists in store, if not, create new
-    let customerId = "";
-    const matchedCustomer = customers.find(
-      (c) => c.name.toLowerCase() === buyerName.trim().toLowerCase()
-    );
+    try {
+      // 1. Check if customer already exists in store, if not, create new
+      let buyerId = "";
+      const matchedBuyer = buyers.find(
+        (b) => b.nama.toLowerCase() === buyerName.trim().toLowerCase()
+      );
 
-    if (matchedCustomer) {
-      customerId = matchedCustomer.id;
-    } else {
-      const created = await addCustomer({
-        name: buyerName.trim(),
-        phone: "081XXXXXXXXX",
+      if (matchedBuyer) {
+        buyerId = matchedBuyer.id;
+      } else {
+        const created = await addBuyer({
+          nama: buyerName.trim(),
+          tipe_pembeli: "perorangan",
+        });
+        buyerId = created.id;
+      }
+
+      // 2. Submit transaction to database
+      const newSale = await createSale({
+        batch_id: matchedFish!.id,
+        buyer_id: buyerId,
+        berat_jual: qtyNum,
+        harga_satuan: priceNum,
+        status_bayar: paymentMethod,
+        tanggal: new Date().toISOString(),
       });
-      customerId = created.id;
+
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        if (newSale.receipt?.id) {
+          router.replace(`/receipts/${newSale.receipt.id}`);
+        } else {
+          router.replace("/transactions");
+        }
+      }, 1500);
+    } catch (err) {
+      alert("Gagal menyimpan transaksi");
     }
-
-    // Find matching fish in stock to get or create stock ID
-    let fishStockId = "";
-    let stockNotFound = false;
-    const matchedFish = fishStocks.find(
-      (fs) => fs.fish_type.name.toLowerCase() === fishName.trim().toLowerCase()
-    );
-
-    if (matchedFish) {
-      fishStockId = matchedFish.id;
-    } else {
-      stockNotFound = true;
-      // Auto-create stock item to prevent dependency issues
-      const createdStock = await addStock({
-        fish_type: {
-          id: `ft-${Date.now()}`,
-          name: fishName.trim(),
-          category: "laut",
-          unit: "kg",
-        },
-        quantity: Number(quantity),
-        buy_price: Number(sellPrice) * 0.8, // Estimate buy price
-        sell_price: Number(sellPrice),
-        supplier_id: "Supplier Umum",
-        batch_date: new Date().toISOString().split("T")[0],
-      });
-      fishStockId = createdStock.id;
-    }
-
-    const total = calculateTotal();
-    const paid = paymentMethod === "lunas" ? total : 0;
-    const status = paymentMethod === "lunas" ? "paid" : "unpaid";
-
-    const items: TransactionItem[] = [
-      {
-        id: `txi-${Date.now()}`,
-        fish_stock_id: fishStockId,
-        fish_name: fishName.trim(),
-        quantity: Number(quantity),
-        unit_price: Number(sellPrice),
-        subtotal: total,
-        stock_not_found: stockNotFound,
-      },
-    ];
-
-    await addTransaction({
-      customer_id: customerId,
-      customer_name: buyerName.trim(),
-      items,
-      total_amount: total,
-      paid_amount: paid,
-      payment_status: status,
-      payment_method: paymentMethod === "lunas" ? "cash" : "transfer",
-    });
-
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      router.replace("/transactions");
-    }, 1500);
   };
 
   return (
@@ -202,19 +194,39 @@ export default function InputPembeliScreen() {
             >
               <Ionicons name="chevron-back" size={iconSize(24)} color={Colors.textPrimary} />
             </Pressable>
-            <Text style={Type.headerTitle}>Input Transaksi Pembeli</Text>
+            <Text style={Type.headerTitle}>Input Transaksi</Text>
           </View>
-          <Pressable
-            onPress={handleSave}
-            style={({ pressed }) => ({
-              ...SharedStyles.headerSaveButton,
-              backgroundColor: pressed ? Colors.successDark : Colors.success,
-            })}
-          >
-            <Text style={{ color: Colors.textWhite, fontSize: rfs(13), fontWeight: "700" }}>
-              Simpan
-            </Text>
-          </Pressable>
+          
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Pressable
+              onPress={() => setShowVoiceModal(true)}
+              style={({ pressed }) => ({
+                marginRight: 10,
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: pressed ? "rgba(96, 165, 250, 0.15)" : "rgba(96, 165, 250, 0.08)",
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: "rgba(96, 165, 250, 0.2)",
+              })}
+            >
+              <Ionicons name="mic" size={18} color={Colors.royalBlue} />
+            </Pressable>
+
+            <Pressable
+              onPress={handleSave}
+              style={({ pressed }) => ({
+                ...SharedStyles.headerSaveButton,
+                backgroundColor: pressed ? Colors.successDark : Colors.success,
+              })}
+            >
+              <Text style={{ color: Colors.textWhite, fontSize: rfs(13), fontWeight: "700" }}>
+                Simpan
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <ScrollView
@@ -224,39 +236,7 @@ export default function InputPembeliScreen() {
         >
           {/* Card Form */}
           <View style={SharedStyles.formCard}>
-            {/* AI Assistant Voice Input */}
-            <Pressable
-              onPress={() => {
-                if (isListening) return;
-                setIsListening(true);
-                setTimeout(() => {
-                  setBuyerName("Resto Segara Indah");
-                  setFishName("Tuna Filet");
-                  setQuantity("15");
-                  setSellPrice("85000");
-                  setPaymentMethod("tempo");
-                  setIsListening(false);
-                }, 2000);
-              }}
-              style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: isListening ? "rgba(59, 130, 246, 0.2)" : (pressed ? "rgba(59, 130, 246, 0.15)" : "rgba(59, 130, 246, 0.08)"),
-                paddingVertical: spacing(14),
-                borderRadius: radius(12),
-                marginBottom: spacing(24),
-                borderWidth: 1.5,
-                borderColor: Colors.royalBlue,
-                borderStyle: isListening ? "solid" : "dashed",
-              })}
-            >
-              <Ionicons name={isListening ? "mic" : "mic-outline"} size={iconSize(20)} color={Colors.royalBlue} style={{ marginRight: spacing(8) }} />
-              <Text style={{ color: Colors.royalBlue, fontSize: rfs(14), fontWeight: "800" }}>
-                {isListening ? "Mendengarkan Suara..." : "Isi Otomatis via Suara (AI)"}
-              </Text>
-            </Pressable>
-
+            
             {/* Buyer Name Input with Autocomplete Dropdown */}
             <View style={{ marginBottom: 16, zIndex: 10 }}>
               <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "600", marginBottom: 8 }}>
@@ -302,13 +282,14 @@ export default function InputPembeliScreen() {
                       shadowOffset: { width: 0, height: 4 },
                       shadowOpacity: 0.1,
                       shadowRadius: 6,
+                      zIndex: 9999,
                     }}
                   >
                     <ScrollView keyboardShouldPersistTaps="handled">
                       {filteredCustomers.map((cust) => (
                         <Pressable
                           key={cust.id}
-                          onPress={() => handleSelectCustomer(cust.name)}
+                          onPress={() => handleSelectCustomer(cust.nama)}
                           style={({ pressed }) => ({
                             paddingVertical: 12,
                             paddingHorizontal: 14,
@@ -318,7 +299,7 @@ export default function InputPembeliScreen() {
                           })}
                         >
                           <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "500" }}>
-                            {cust.name}
+                            {cust.nama}
                           </Text>
                         </Pressable>
                       ))}
@@ -526,7 +507,7 @@ export default function InputPembeliScreen() {
                 Harga Total:
               </Text>
               <Text style={{ color: "#123499", fontSize: 20, fontWeight: "bold" }}>
-                Rp {calculateTotal().toLocaleString()}
+                {formatCurrency(calculateTotal())}
               </Text>
             </View>
 
@@ -600,6 +581,13 @@ export default function InputPembeliScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <VoiceInputModal
+        visible={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        formType="sale"
+        onSuccess={handleVoiceSuccess}
+      />
     </SafeAreaView>
   );
 }

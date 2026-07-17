@@ -41,6 +41,7 @@ export interface FishStock {
   buy_price: number;
   sell_price: number;
   supplier_id: string;
+  supplier_name?: string;
   batch_date: string;
   expiry_date?: string;
   notes?: string;

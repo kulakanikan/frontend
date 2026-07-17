@@ -210,6 +210,26 @@ export const receiptsApi = {
   },
 };
 
+// ─── VOICE (Gemini Parser) ────────────────────────────────────────────────
+export const voiceApi = {
+  parse: async (transcript: string, formType: "batch" | "supplier" | "buyer" | "sale" | "batch_expense") => {
+    const res = await apiClient.post("/voice/parse", {
+      transcript,
+      form_type: formType,
+    });
+    return unwrap<{ form_type: string; suggestion: any }>(res);
+  },
+
+  parseAudio: async (audioBase64: string, mimeType: string, formType: "batch" | "supplier" | "buyer" | "sale" | "batch_expense") => {
+    const res = await apiClient.post("/voice/parse", {
+      audio: audioBase64,
+      mime_type: mimeType,
+      form_type: formType,
+    });
+    return unwrap<{ form_type: string; suggestion: any }>(res);
+  },
+};
+
 // ─── API TYPES ────────────────────────────────────────────────────────────
 
 export interface ApiUser {

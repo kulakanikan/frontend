@@ -1,66 +1,226 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   ScrollView,
   Pressable,
-  SafeAreaView,
   TextInput,
   Platform,
   Alert,
+  Modal,
+  ActivityIndicator,
+  TouchableOpacity,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import { useFishStore } from "../src/store";
-import { Transaction, TransactionItem } from "../src/types";
+import { useBuyerStore, useTransactionStore } from "../src/store";
 import { Colors, Type, Shadow, SharedStyles } from "../src/constants/theme";
 import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../src/utils/responsive";
+import { formatCurrency, formatWeight } from "../src/utils";
+import { salesApi, type ApiBuyer, type ApiSale, type ApiSaleDetail } from "../src/services/api";
+import VoiceInputModal from "../src/components/VoiceInputModal";
 
 export default function BuyerHistoryScreen() {
   const router = useRouter();
-  const { transactions, customers } = useFishStore();
+  const params = useLocalSearchParams();
+  const { buyers, fetchBuyers, addBuyer, updateBuyer } = useBuyerStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBuyer, setSelectedBuyer] = useState<string | null>(null);
+  const [selectedBuyer, setSelectedBuyer] = useState<ApiBuyer | null>(null);
+  
+  // Sales History State
+  const [buyerSales, setBuyerSales] = useState<(ApiSaleDetail | ApiSale)[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Group transactions by buyer name
-  const buyersMap = transactions.reduce((acc, tx) => {
-    const name = tx.customer_name || "Pembeli Umum";
-    if (!acc[name]) {
-      acc[name] = {
-        name,
-        transactions: [],
-        totalSpent: 0,
-      };
-    }
-    acc[name].transactions.push(tx);
-    acc[name].totalSpent += tx.total_amount;
-    return acc;
-  }, {} as Record<string, { name: string; transactions: Transaction[]; totalSpent: number }>);
+  // Edit Buyer State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editType, setEditType] = useState("perorangan");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // Convert map to list and filter by search query
-  const buyersList = Object.values(buyersMap).filter((b) =>
-    b.name.toLowerCase().includes(searchQuery.toLowerCase())
+  // Add Buyer State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addPhone, setAddPhone] = useState("");
+  const [addType, setAddType] = useState("perorangan");
+  const [isSavingAdd, setIsSavingAdd] = useState(false);
+
+  // Voice AI Modal state
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+
+  const handleVoiceSuccess = (suggestion: any) => {
+    if (suggestion.nama) setAddName(suggestion.nama);
+    if (suggestion.telepon) setAddPhone(suggestion.telepon);
+    if (suggestion.tipe_pembeli) setAddType(suggestion.tipe_pembeli.toLowerCase());
+    setShowAddModal(true);
+  };
+
+  // Auto-open Add Modal if parameter open_add passed
+  useEffect(() => {
+    if (params.open_add === "true") {
+      setAddName((params.nama as string) || "");
+      setAddPhone((params.telepon as string) || "");
+      
+      const incomingType = params.tipe_pembeli as string;
+      if (incomingType && ["pengecer", "grosir", "perorangan", "lainnya"].includes(incomingType.toLowerCase())) {
+        setAddType(incomingType.toLowerCase());
+      } else {
+        setAddType("perorangan");
+      }
+      
+      setShowAddModal(true);
+      // Clear route params so it won't open again on re-render
+      router.setParams({ open_add: undefined, nama: undefined, telepon: undefined, tipe_pembeli: undefined });
+    }
+  }, [params.open_add]);
+
+  // Fetch buyers list on focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchBuyers().catch((err) => console.error("Failed to fetch buyers:", err));
+    }, [fetchBuyers])
   );
 
-  // Helper to generate the HTML content for the invoice
-  const getInvoiceHtml = (tx: Transaction) => {
-    const itemsHtml = tx.items
+  // If a buyer is selected, refresh their sales list
+  const refreshBuyerSales = async (buyerId: string) => {
+    setIsHistoryLoading(true);
+    try {
+      const salesRes = await salesApi.list({ buyer_id: buyerId });
+      // Fetch details with payments for tempo sales
+      const detailedSales = await Promise.all(
+        salesRes.sales.map(async (sale) => {
+          if (sale.statusBayar === "tempo") {
+            try {
+              const detailRes = await salesApi.get(sale.id);
+              return detailRes.sale;
+            } catch (err) {
+              return sale;
+            }
+          }
+          return sale;
+        })
+      );
+      setBuyerSales(detailedSales);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  const handleSelectBuyer = (buyer: ApiBuyer) => {
+    setSelectedBuyer(buyer);
+    refreshBuyerSales(buyer.id);
+  };
+
+  const handleOpenEdit = () => {
+    if (!selectedBuyer) return;
+    setEditName(selectedBuyer.nama);
+    setEditPhone(selectedBuyer.telepon || "");
+    setEditType(selectedBuyer.tipePembeli || "perorangan");
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedBuyer) return;
+    if (!editName.trim()) {
+      alert("Nama pembeli wajib diisi");
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      // Auto-prefix phone with +62 if entered as 08
+      let formattedPhone = editPhone.trim();
+      if (formattedPhone.startsWith("08")) {
+        formattedPhone = "+628" + formattedPhone.slice(2);
+      }
+
+      await updateBuyer(selectedBuyer.id, {
+        nama: editName.trim(),
+        telepon: formattedPhone || null,
+        tipe_pembeli: editType,
+      });
+
+      setSelectedBuyer((prev) =>
+        prev
+          ? {
+              ...prev,
+              nama: editName.trim(),
+              telepon: formattedPhone || null,
+              tipePembeli: editType,
+            }
+          : null
+      );
+      setShowEditModal(false);
+      alert("Data pembeli berhasil disimpan");
+    } catch (err) {
+      alert("Gagal memperbarui data pembeli");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleSaveAdd = async () => {
+    if (!addName.trim()) {
+      alert("Nama pembeli wajib diisi");
+      return;
+    }
+
+    setIsSavingAdd(true);
+    try {
+      // Auto-prefix phone with +62 if entered as 08
+      let formattedPhone = addPhone.trim();
+      if (formattedPhone.startsWith("08")) {
+        formattedPhone = "+628" + formattedPhone.slice(2);
+      }
+
+      await addBuyer({
+        nama: addName.trim(),
+        telepon: formattedPhone || undefined,
+        tipe_pembeli: addType,
+      });
+
+      setShowAddModal(false);
+      setAddName("");
+      setAddPhone("");
+      setAddType("perorangan");
+      alert("Data pembeli baru berhasil disimpan");
+    } catch (err) {
+      alert("Gagal menambahkan data pembeli baru");
+    } finally {
+      setIsSavingAdd(false);
+    }
+  };
+
+  const getInvoiceHtml = (tx: ApiSaleDetail | ApiSale) => {
+    const mainFishHtml = `
+      <tr class="item-row">
+        <td class="col-desc">Ikan ${tx.batch?.jenisIkan || "Ikan"}</td>
+        <td class="col-qty">${formatWeight(Number(tx.beratJual))}</td>
+        <td class="col-price">${formatCurrency(Number(tx.hargaSatuan))}</td>
+        <td class="col-total">${formatCurrency(Number(tx.beratJual) * Number(tx.hargaSatuan))}</td>
+      </tr>
+    `;
+
+    const extrasHtml = tx.saleExtras
       .map(
         (item) => `
       <tr class="item-row">
-        <td class="col-desc">${item.fish_name}${item.stock_not_found ? " <span class='no-stock'>(Stok tidak ada)</span>" : ""}</td>
-        <td class="col-qty">${item.quantity} Kg</td>
-        <td class="col-price">Rp ${item.unit_price.toLocaleString()}</td>
-        <td class="col-total">Rp ${item.subtotal.toLocaleString()}</td>
+        <td class="col-desc">+ ${item.namaItem}</td>
+        <td class="col-qty">${item.jumlah}x</td>
+        <td class="col-price">${formatCurrency(Number(item.hargaSatuan))}</td>
+        <td class="col-total">${formatCurrency(Number(item.subtotal))}</td>
       </tr>
     `
       )
       .join("");
 
-    const formattedDate = new Date(tx.created_at).toLocaleDateString("id-ID", {
+    const formattedDate = new Date(tx.tanggal).toLocaleDateString("id-ID", {
       day: "numeric",
       month: "long",
       year: "numeric",
@@ -73,7 +233,7 @@ export default function BuyerHistoryScreen() {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Nota Belanja ${tx.invoice_number}</title>
+        <title>Nota Belanja ${tx.receipt?.nomorStruk || tx.id.slice(0, 8)}</title>
         <style>
           body {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -146,11 +306,6 @@ export default function BuyerHistoryScreen() {
             font-weight: 600;
             color: #333;
           }
-          .no-stock {
-            color: #ef4444;
-            font-size: 9px;
-            font-weight: bold;
-          }
           .col-qty, .col-price, .col-total {
             text-align: right;
           }
@@ -178,90 +333,49 @@ export default function BuyerHistoryScreen() {
             padding-top: 6px;
             margin-top: 4px;
           }
-          .footer-note {
-            margin-top: 180px;
-            text-align: center;
-            border-top: 1px solid #eeeeee;
-            padding-top: 12px;
-            color: #888888;
-            font-size: 10px;
-          }
-          .badge {
-            display: inline-block;
-            padding: 3px 6px;
-            border-radius: 4px;
-            font-size: 9px;
-            font-weight: bold;
-            text-transform: uppercase;
-          }
-          .badge-paid {
-            background-color: #22c55e;
-            color: #ffffff;
-          }
-          .badge-unpaid {
-            background-color: #ef4444;
-            color: #ffffff;
-          }
         </style>
       </head>
       <body>
         <div class="invoice-box">
           <div class="header">
             <h1>KULAKAN IKAN</h1>
-            <p>Pelabuhan Perikanan Samudera Jakarta, Indonesia</p>
-            <p>Telp: 0812-3456-7890 | Email: support@kulakanikan.com</p>
+            <p>Sistem Kasir & Gudang Distributor Ikan</p>
           </div>
-
+          
           <div class="meta-section">
             <div class="meta-col">
-              <p><strong>No. Invoice:</strong> ${tx.invoice_number}</p>
-              <p><strong>Tanggal:</strong> ${formattedDate}</p>
-              <p><strong>Metode:</strong> ${tx.payment_method.toUpperCase()}</p>
+              <p><strong>Nota Untuk:</strong></p>
+              <p>${selectedBuyer?.nama || "Pelanggan Umum"}</p>
+              <p>HP: ${selectedBuyer?.telepon || "-"}</p>
+              <p>Tipe: ${selectedBuyer?.tipePembeli || "perorangan"}</p>
             </div>
             <div class="meta-col" style="text-align: right;">
-              <p><strong>Pelanggan:</strong> ${tx.customer_name}</p>
-              <p style="margin-top: 6px;">
-                <span class="badge ${tx.payment_status === "paid" ? "badge-paid" : "badge-unpaid"}">
-                  ${tx.payment_status === "paid" ? "Lunas" : "Tempo"}
-                </span>
-              </p>
+              <p><strong>No. Invoice:</strong> ${tx.receipt?.nomorStruk || tx.id.slice(0, 8)}</p>
+              <p><strong>Tanggal:</strong> ${formattedDate}</p>
+              <p><strong>Status:</strong> ${tx.statusBayar.toUpperCase()}</p>
             </div>
           </div>
-
+          
           <table class="table-items">
             <thead>
               <tr>
-                <th style="width: 45%;">Ikan / Produk</th>
-                <th class="col-qty" style="width: 15%;">Berat</th>
-                <th class="col-price" style="width: 20%;">Harga/Kg</th>
-                <th class="col-total" style="width: 20%;">Total</th>
+                <th style="width: 45%;">Produk</th>
+                <th style="width: 15%; text-align: right;">Qty</th>
+                <th style="width: 20%; text-align: right;">Harga</th>
+                <th style="width: 20%; text-align: right;">Subtotal</th>
               </tr>
             </thead>
             <tbody>
-              ${itemsHtml}
+              ${mainFishHtml}
+              ${extrasHtml}
             </tbody>
           </table>
-
+          
           <div class="total-section">
-            <div class="total-row">
-              <span>Subtotal:</span>
-              <span>Rp ${tx.total_amount.toLocaleString()}</span>
-            </div>
-            <div class="total-row">
-              <span>Bayar:</span>
-              <span>Rp ${tx.paid_amount.toLocaleString()}</span>
-            </div>
             <div class="total-row grand-total">
               <span>Total Tagihan:</span>
-              <span>Rp ${(tx.total_amount - tx.paid_amount).toLocaleString()}</span>
+              <span>${formatCurrency(Number(tx.total))}</span>
             </div>
-          </div>
-
-          <div style="clear: both;"></div>
-
-          <div class="footer-note">
-            <p>Terima kasih atas kunjungan dan pembelian Anda di Kulakan Ikan!</p>
-            <p>Nota belanja ini diterbitkan sah secara digital oleh sistem POS Kulakan Ikan.</p>
           </div>
         </div>
       </body>
@@ -269,103 +383,179 @@ export default function BuyerHistoryScreen() {
     `;
   };
 
-  const handlePrint = async (tx: Transaction) => {
+  const handlePrint = async (tx: ApiSaleDetail | ApiSale) => {
     setIsGenerating(true);
     try {
       const htmlContent = getInvoiceHtml(tx);
       await Print.printAsync({ html: htmlContent });
     } catch (error) {
-      console.error(error);
-      Alert.alert("Error", "Gagal mencetak nota belanja");
+      Alert.alert("Gagal mencetak nota", "Silakan coba lagi.");
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleDownloadPDF = async (tx: Transaction) => {
+  const handleDownloadPDF = async (tx: ApiSaleDetail | ApiSale) => {
     setIsGenerating(true);
     try {
       const htmlContent = getInvoiceHtml(tx);
       const { uri } = await Print.printToFileAsync({ html: htmlContent });
-      await Sharing.shareAsync(uri);
+      
+      if (Platform.OS === "ios") {
+        await Sharing.shareAsync(uri);
+      } else {
+        const permission = await Sharing.isAvailableAsync();
+        if (permission) {
+          await Sharing.shareAsync(uri);
+        } else {
+          Alert.alert("Fitur tidak didukung", "Sharing tidak tersedia pada perangkat ini.");
+        }
+      }
     } catch (error) {
-      console.error(error);
-      Alert.alert("Error", "Gagal mengunduh PDF");
+      Alert.alert("Gagal mengunduh PDF", "Terjadi kesalahan saat memproses file.");
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // Filter transactions by selected buyer
-  const filteredTransactions = transactions.filter(
-    (tx) => (tx.customer_name || "Pembeli Umum") === selectedBuyer
+  // Filter local buyers for display query
+  const filteredBuyers = buyers.filter((b) =>
+    b.nama.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Computations for buyer statistics
+  const totalSpent = buyerSales.reduce((sum, s) => sum + Number(s.total), 0);
+  
+  const totalDebt = buyerSales.reduce((sum, s) => {
+    if (s.statusBayar === "lunas") return sum;
+    // If tempo, check detailed payments
+    const detail = s as ApiSaleDetail;
+    const paid = detail.payments?.reduce((pSum, p) => pSum + Number(p.jumlahBayar), 0) || 0;
+    return sum + (Number(s.total) - paid);
+  }, 0);
 
   return (
     <SafeAreaView style={SharedStyles.screen}>
       {/* Header */}
       <View style={SharedStyles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => ({
-            ...SharedStyles.backButton,
-            backgroundColor: pressed ? "rgba(0,0,0,0.05)" : "transparent",
-          })}
-        >
-          <Ionicons name="chevron-back" size={iconSize(24)} color={Colors.textPrimary} />
-        </Pressable>
-        <Text style={Type.headerTitle}>Riwayat Nota Pembeli</Text>
-      </View>
+        <View style={SharedStyles.row}>
+          <Pressable
+            onPress={() => (selectedBuyer ? setSelectedBuyer(null) : router.back())}
+            style={({ pressed }) => ({
+              ...SharedStyles.backButton,
+              backgroundColor: pressed ? "rgba(0,0,0,0.05)" : "transparent",
+            })}
+          >
+            <Ionicons name="chevron-back" size={iconSize(24)} color={Colors.textPrimary} />
+          </Pressable>
+          <Text style={Type.headerTitle}>
+            {selectedBuyer ? selectedBuyer.nama : "Manajemen Pelanggan"}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {!selectedBuyer && (
+            <Pressable
+              onPress={() => setShowVoiceModal(true)}
+              style={({ pressed }) => ({
+                marginRight: 8,
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: pressed ? "rgba(96, 165, 250, 0.15)" : "rgba(96, 165, 250, 0.08)",
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: "rgba(96, 165, 250, 0.2)",
+              })}
+            >
+              <Ionicons name="mic" size={18} color={Colors.royalBlue} />
+            </Pressable>
+          )}
 
-      {/* Main Container */}
-      <View style={{ flex: 1, backgroundColor: Colors.background, padding: spacing(16) }}>
-        {/* Search Bar */}
-        <View
-          style={[SharedStyles.row, {
-            backgroundColor: Colors.card,
-            borderRadius: radius(12),
-            paddingHorizontal: spacing(14),
-            height: hp(46),
-            borderWidth: 1.2,
-            borderColor: Colors.royalBlueMuted,
-            marginBottom: spacing(16),
-            ...Shadow.card,
-          }]}
-        >
-          <Ionicons name="search-outline" size={iconSize(18)} color={Colors.textMuted} style={{ marginRight: spacing(10) }} />
-          <TextInput
-            style={{ flex: 1, fontSize: rfs(14), color: Colors.textPrimary }}
-            placeholder="Cari nama pembeli..."
-            placeholderTextColor={Colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={iconSize(18)} color={Colors.textMuted} />
+          {selectedBuyer ? (
+            <Pressable
+              onPress={handleOpenEdit}
+              style={({ pressed }) => ({
+                ...SharedStyles.headerSaveButton,
+                backgroundColor: pressed ? "rgba(0, 7, 45, 0.15)" : "rgba(0, 7, 45, 0.08)",
+                borderWidth: 1,
+                borderColor: Colors.royalBlue,
+              })}
+            >
+              <Text style={{ color: Colors.royalBlue, fontSize: rfs(12), fontWeight: "700" }}>
+                Edit Info
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => {
+                setAddName("");
+                setAddPhone("");
+                setAddType("perorangan");
+                setShowAddModal(true);
+              }}
+              style={({ pressed }) => ({
+                ...SharedStyles.headerSaveButton,
+                backgroundColor: pressed ? "rgba(18, 52, 153, 0.15)" : "transparent",
+                borderWidth: 1.5,
+                borderColor: "#123499",
+              })}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                <Ionicons name="add" size={14} color="#123499" />
+                <Text style={{ color: "#123499", fontSize: rfs(11), fontWeight: "700" }}>
+                  Tambah
+                </Text>
+              </View>
             </Pressable>
           )}
         </View>
+      </View>
 
-        {/* Dynamic content view */}
+      <View style={[SharedStyles.content, { padding: spacing(16) }]}>
+        
+        {/* Search bar displayed only on list view */}
+        {selectedBuyer === null && (
+          <View style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: "#ffffff",
+            borderRadius: radius(16),
+            paddingHorizontal: spacing(12),
+            height: 48,
+            marginBottom: spacing(20),
+            borderWidth: 1.5,
+            borderColor: "#e5eaf7",
+          }}>
+            <Ionicons name="search" size={iconSize(20)} color="#64748b" style={{ marginRight: spacing(8) }} />
+            <TextInput
+              style={{ flex: 1, height: "100%", color: "#00072d", fontSize: rfs(14) }}
+              placeholder="Cari pelanggan..."
+              placeholderTextColor="#64748b"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+        )}
+
         {selectedBuyer === null ? (
           // === LIST OF BUYERS VIEW ===
           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-            <Text style={SharedStyles.sectionTitle}>
+            <Text style={{ color: "#00072d", fontSize: rfs(16), fontWeight: "bold", marginBottom: spacing(12) }}>
               Daftar Pelanggan Terdaftar
             </Text>
-            {buyersList.length === 0 ? (
-              <View style={SharedStyles.emptyState}>
-                <Ionicons name="people-outline" size={iconSize(48)} color={Colors.textMuted} style={{ marginBottom: spacing(12) }} />
-                <Text style={{ ...Type.bodySmall, textAlign: "center" }}>
+            {filteredBuyers.length === 0 ? (
+              <View style={{ alignItems: "center", marginTop: 40 }}>
+                <Ionicons name="people-outline" size={iconSize(48)} color="#64748b" style={{ marginBottom: spacing(12) }} />
+                <Text style={{ color: "#64748b", textAlign: "center", fontSize: rfs(13) }}>
                   Tidak ada pelanggan yang cocok dengan pencarian.
                 </Text>
               </View>
             ) : (
-              buyersList.map((buyer) => (
+              filteredBuyers.map((buyer) => (
                 <Pressable
-                  key={buyer.name}
-                  onPress={() => setSelectedBuyer(buyer.name)}
+                  key={buyer.id}
+                  onPress={() => handleSelectBuyer(buyer)}
                   style={({ pressed }) => [
                     SharedStyles.card,
                     {
@@ -377,11 +567,12 @@ export default function BuyerHistoryScreen() {
                 >
                   <View style={[SharedStyles.row, { justifyContent: "space-between" }]}>
                     <View style={[SharedStyles.row, { flex: 1 }]}>
+                      {/* Avatar */}
                       <View
                         style={{
-                          width: wp(40),
-                          height: wp(40),
-                          borderRadius: wp(20),
+                          width: 40,
+                          height: 40,
+                          borderRadius: 20,
                           backgroundColor: Colors.royalBlueMuted,
                           alignItems: "center",
                           justifyContent: "center",
@@ -389,13 +580,13 @@ export default function BuyerHistoryScreen() {
                         }}
                       >
                         <Text style={{ color: Colors.royalBlue, fontSize: rfs(16), fontWeight: "bold" }}>
-                          {buyer.name.charAt(0).toUpperCase()}
+                          {buyer.nama.charAt(0).toUpperCase()}
                         </Text>
                       </View>
                       <View>
-                        <Text style={Type.body}>{buyer.name}</Text>
-                        <Text style={{ ...Type.caption, marginTop: 2 }}>
-                          {buyer.transactions.length} Transaksi (Total Rp {buyer.totalSpent.toLocaleString()})
+                        <Text style={{ color: "#00072d", fontSize: rfs(14), fontWeight: "bold" }}>{buyer.nama}</Text>
+                        <Text style={{ color: "#64748b", fontSize: rfs(11), marginTop: 2 }}>
+                          Tipe: <Text style={{ textTransform: "capitalize", fontWeight: "600" }}>{buyer.tipePembeli || "perorangan"}</Text> {buyer.telepon ? `| ${buyer.telepon}` : ""}
                         </Text>
                       </View>
                     </View>
@@ -415,123 +606,334 @@ export default function BuyerHistoryScreen() {
                 flexDirection: "row",
                 alignItems: "center",
                 paddingVertical: spacing(8),
-                marginBottom: spacing(12),
+                marginBottom: spacing(16),
                 opacity: pressed ? 0.7 : 1,
               })}
             >
               <Ionicons name="arrow-back" size={iconSize(16)} color={Colors.royalBlue} />
-              <Text style={{ color: Colors.royalBlue, fontSize: rfs(14), fontWeight: "bold", marginLeft: spacing(6) }}>
+              <Text style={{ color: Colors.royalBlue, fontSize: rfs(13), fontWeight: "bold", marginLeft: spacing(6) }}>
                 Kembali ke Daftar Pelanggan
               </Text>
             </Pressable>
 
+            {/* Stats Summary Card */}
+            <View style={{ backgroundColor: "#f0f4f9", borderRadius: radius(18), padding: spacing(16), marginBottom: spacing(18) }}>
+              <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: 12 }]}>
+                <Text style={{ color: "#64748b", fontSize: 12 }}>Telepon</Text>
+                <Text style={{ color: "#00072d", fontWeight: "bold", fontSize: 13 }}>{selectedBuyer.telepon || "-"}</Text>
+              </View>
+              <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: 12 }]}>
+                <Text style={{ color: "#64748b", fontSize: 12 }}>Total Pembelian</Text>
+                <Text style={{ color: "#00072d", fontWeight: "bold", fontSize: 13 }}>{formatCurrency(totalSpent)}</Text>
+              </View>
+              <View style={[SharedStyles.row, { justifyContent: "space-between" }]}>
+                <Text style={{ color: "#64748b", fontSize: 12 }}>Total Hutang (Piutang)</Text>
+                <Text style={{ color: totalDebt > 0 ? Colors.danger : Colors.success, fontWeight: "900", fontSize: 14 }}>
+                  {formatCurrency(totalDebt)}
+                </Text>
+              </View>
+            </View>
+
             {/* Buyer Title Info Header */}
             <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(16) }]}>
-              <Text style={SharedStyles.sectionTitle}>
-                Riwayat: {selectedBuyer}
+              <Text style={{ color: "#00072d", fontSize: rfs(16), fontWeight: "bold" }}>
+                Riwayat Transaksi
               </Text>
-              <View style={[SharedStyles.badgePaid, { backgroundColor: Colors.royalBlueMuted }]}>
-                <Text style={{ color: Colors.royalBlue, fontSize: rfs(10), fontWeight: "700" }}>
-                  {filteredTransactions.length} Transaksi
+              <View style={{ backgroundColor: Colors.royalBlueMuted, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius(8) }}>
+                <Text style={{ color: Colors.royalBlue, fontSize: rfs(11), fontWeight: "700" }}>
+                  {buyerSales.length} Transaksi
                 </Text>
               </View>
             </View>
 
             {/* History of Invoices */}
-            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-              {filteredTransactions.map((tx) => (
-                <View
-                  key={tx.id}
-                  style={[SharedStyles.card, { padding: spacing(16), marginBottom: spacing(12) }]}
-                >
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <View>
-                      <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "bold" }}>
-                        {tx.invoice_number}
-                      </Text>
-                      <Text style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>
-                        {new Date(tx.created_at).toLocaleDateString("id-ID")}
-                      </Text>
-                    </View>
-                    <View style={tx.payment_status === "paid" ? SharedStyles.badgePaid : SharedStyles.badgeUnpaid}>
-                      <Text
-                        style={{
-                          color: tx.payment_status === "paid" ? Colors.success : Colors.danger,
-                          fontSize: rfs(9),
-                          fontWeight: "bold",
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        {tx.payment_status === "paid" ? "Lunas" : "Tempo"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Items display */}
-                  <View style={SharedStyles.infoRow}>
-                    {tx.items.map((i) => (
-                      <View key={i.id} style={[SharedStyles.row, { justifyContent: "space-between", marginVertical: spacing(2) }]}>
-                        <Text style={{ ...Type.bodySmall, color: Colors.navyLight, flex: 1, marginRight: spacing(8) }} numberOfLines={1}>
-                          {i.fish_name} ({i.quantity} Kg)
+            {isHistoryLoading ? (
+              <ActivityIndicator size="large" color={Colors.royalBlue} style={{ marginTop: 40 }} />
+            ) : buyerSales.length === 0 ? (
+              <Text style={{ color: "#64748b", fontSize: 13, textAlign: "center", marginTop: 40, fontStyle: "italic" }}>
+                Belum ada transaksi untuk pembeli ini.
+              </Text>
+            ) : (
+              <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                {buyerSales.map((tx) => (
+                  <View
+                    key={tx.id}
+                    style={[SharedStyles.card, { padding: spacing(16), marginBottom: spacing(12) }]}
+                  >
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <View>
+                        <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "bold" }}>
+                          {tx.receipt?.nomorStruk || tx.id.slice(0, 8)}
                         </Text>
-                        <Text style={Type.bodySmall}>
-                          Rp {i.subtotal.toLocaleString()}
+                        <Text style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>
+                          {new Date(tx.tanggal).toLocaleDateString("id-ID", { year: "numeric", month: "short", day: "numeric" })}
                         </Text>
                       </View>
-                    ))}
-                    <View style={[SharedStyles.row, { justifyContent: "space-between", borderTopWidth: 1, borderTopColor: Colors.divider, marginTop: spacing(8), paddingTop: spacing(6) }]}>
-                      <Text style={Type.caption}>Total:</Text>
-                      <Text style={Type.statSmall}>
-                        Rp {tx.total_amount.toLocaleString()}
-                      </Text>
+                      <View style={{ backgroundColor: tx.statusBayar === "lunas" ? "rgba(34, 197, 94, 0.15)" : "rgba(245, 158, 11, 0.15)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                        <Text
+                          style={{
+                            color: tx.statusBayar === "lunas" ? Colors.success : "#d97706",
+                            fontSize: rfs(10),
+                            fontWeight: "bold",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {tx.statusBayar}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Items display */}
+                    <View style={SharedStyles.infoRow}>
+                      <View style={[SharedStyles.row, { justifyContent: "space-between", marginVertical: spacing(2) }]}>
+                        <Text style={{ fontSize: rfs(12), color: "#00072d", flex: 1, marginRight: spacing(8) }} numberOfLines={1}>
+                          Ikan {tx.batch?.jenisIkan || "Ikan"} ({formatWeight(Number(tx.beratJual))})
+                        </Text>
+                        <Text style={{ fontSize: rfs(12), color: "#00072d" }}>
+                          {formatCurrency(Number(tx.total))}
+                        </Text>
+                      </View>
+                      {tx.saleExtras.map((extra) => (
+                        <View key={extra.id} style={[SharedStyles.row, { justifyContent: "space-between", marginVertical: spacing(1) }]}>
+                          <Text style={{ fontSize: rfs(11), color: "#64748b" }}>
+                            + {extra.namaItem} ({extra.jumlah}x)
+                          </Text>
+                          <Text style={{ fontSize: rfs(11), color: "#64748b" }}>
+                            {formatCurrency(Number(extra.subtotal))}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    {/* Action buttons side-by-side */}
+                    <View style={[SharedStyles.row, { gap: spacing(10), marginTop: spacing(12) }]}>
+                      <Pressable
+                        onPress={() => handlePrint(tx)}
+                        disabled={isGenerating}
+                        style={({ pressed }) => [
+                          SharedStyles.outlineButton,
+                          {
+                            flex: 1,
+                            flexDirection: "row",
+                            backgroundColor: pressed ? Colors.cardPressed : Colors.card,
+                            opacity: isGenerating ? 0.7 : 1,
+                          },
+                        ]}
+                      >
+                        <Ionicons name="print-outline" size={iconSize(16)} color={Colors.royalBlue} style={{ marginRight: spacing(6) }} />
+                        <Text style={{ color: Colors.royalBlue, fontSize: rfs(13), fontWeight: "bold" }}>
+                          Cetak Nota
+                        </Text>
+                      </Pressable>
+
+                      <Pressable
+                        onPress={() => handleDownloadPDF(tx)}
+                        disabled={isGenerating}
+                        style={({ pressed }) => [
+                          SharedStyles.primaryButton,
+                          {
+                            flex: 1,
+                            flexDirection: "row",
+                            backgroundColor: pressed ? Colors.successDark : Colors.success,
+                            opacity: isGenerating ? 0.7 : 1,
+                          },
+                        ]}
+                      >
+                        <Ionicons name="download-outline" size={iconSize(16)} color={Colors.textWhite} style={{ marginRight: spacing(6) }} />
+                        <Text style={{ color: Colors.textWhite, fontSize: rfs(13), fontWeight: "bold" }}>
+                          Unduh PDF
+                        </Text>
+                      </Pressable>
                     </View>
                   </View>
-                  {/* Action buttons side-by-side */}
-                  <View style={[SharedStyles.row, { gap: spacing(10), marginTop: spacing(12) }]}>
-                    <Pressable
-                      onPress={() => handlePrint(tx)}
-                      disabled={isGenerating}
-                      style={({ pressed }) => [
-                        SharedStyles.outlineButton,
-                        {
-                          flex: 1,
-                          flexDirection: "row",
-                          backgroundColor: pressed ? Colors.cardPressed : Colors.card,
-                          opacity: isGenerating ? 0.7 : 1,
-                        },
-                      ]}
-                    >
-                      <Ionicons name="print-outline" size={iconSize(16)} color={Colors.royalBlue} style={{ marginRight: spacing(6) }} />
-                      <Text style={{ color: Colors.royalBlue, fontSize: rfs(13), fontWeight: "bold" }}>
-                        Cetak Nota
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      onPress={() => handleDownloadPDF(tx)}
-                      disabled={isGenerating}
-                      style={({ pressed }) => [
-                        SharedStyles.primaryButton,
-                        {
-                          flex: 1,
-                          flexDirection: "row",
-                          backgroundColor: pressed ? Colors.successDark : Colors.success,
-                          opacity: isGenerating ? 0.7 : 1,
-                        },
-                      ]}
-                    >
-                      <Ionicons name="download-outline" size={iconSize(16)} color={Colors.textWhite} style={{ marginRight: spacing(6) }} />
-                      <Text style={{ color: Colors.textWhite, fontSize: rfs(13), fontWeight: "bold" }}>
-                        Unduh PDF
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
+                ))}
+              </ScrollView>
+            )}
           </View>
         )}
       </View>
+
+      {/* MODAL: EDIT BUYER INFO */}
+      <Modal visible={showEditModal} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: "rgba(0, 7, 45, 0.7)", justifyContent: "center", alignItems: "center", padding: 20 }}>
+          <View style={{ width: "100%", maxWidth: 330, backgroundColor: "#ffffff", borderRadius: 24, padding: 22, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 15, elevation: 8 }}>
+            
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <Text style={{ color: "#00072d", fontSize: 17, fontWeight: "bold" }}>Edit Info Pelanggan</Text>
+              <Pressable onPress={() => setShowEditModal(false)}>
+                <Ionicons name="close" size={24} color="#00072d" />
+              </Pressable>
+            </View>
+
+            {/* Name */}
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 6 }}>Nama Pelanggan *</Text>
+              <TextInput
+                style={{ height: 44, backgroundColor: "#e5eaf7", borderRadius: 12, paddingHorizontal: 14, fontSize: 14, color: "#00072d" }}
+                value={editName}
+                onChangeText={setEditName}
+              />
+            </View>
+
+            {/* Phone */}
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 6 }}>No. HP / Telepon</Text>
+              <TextInput
+                style={{ height: 44, backgroundColor: "#e5eaf7", borderRadius: 12, paddingHorizontal: 14, fontSize: 14, color: "#00072d" }}
+                placeholder="Contoh: 08123..."
+                placeholderTextColor="#64748b"
+                keyboardType="phone-pad"
+                value={editPhone}
+                onChangeText={setEditPhone}
+              />
+            </View>
+
+            {/* Tipe Pembeli Dropdown choice */}
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 8 }}>Tipe Pelanggan</Text>
+              <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                {["pengecer", "grosir", "perorangan", "lainnya"].map((type) => {
+                  const isSel = editType === type;
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      onPress={() => setEditType(type)}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 8,
+                        backgroundColor: isSel ? Colors.navy : "#f0f4f9",
+                        borderWidth: 1,
+                        borderColor: isSel ? Colors.navy : "#e5eaf7",
+                      }}
+                    >
+                      <Text style={{ color: isSel ? "#ffffff" : "#00072d", fontSize: 11, fontWeight: "bold", textTransform: "capitalize" }}>
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Actions */}
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <Pressable
+                disabled={isSavingEdit}
+                onPress={() => setShowEditModal(false)}
+                style={{ flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: "#051650", alignItems: "center", justifyContent: "center" }}
+              >
+                <Text style={{ color: "#051650", fontWeight: "bold", fontSize: 13 }}>Batal</Text>
+              </Pressable>
+              <Pressable
+                disabled={isSavingEdit}
+                onPress={handleSaveEdit}
+                style={{ flex: 1, height: 44, backgroundColor: "#123499", borderRadius: 12, alignItems: "center", justifyContent: "center" }}
+              >
+                {isSavingEdit ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={{ color: "#ffffff", fontWeight: "bold", fontSize: 13 }}>Simpan</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Tambah Pelanggan Baru */}
+      <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,7,45,0.4)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: "#ffffff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: 400 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <Text style={{ fontSize: 18, fontWeight: "bold", color: "#00072d" }}>Tambah Pelanggan Baru</Text>
+              <Pressable onPress={() => setShowAddModal(false)}>
+                <Ionicons name="close" size={24} color="#00072d" />
+              </Pressable>
+            </View>
+
+            {/* Name */}
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 6 }}>Nama Pelanggan *</Text>
+              <TextInput
+                style={{ height: 44, backgroundColor: "#e5eaf7", borderRadius: 12, paddingHorizontal: 14, fontSize: 14, color: "#00072d" }}
+                value={addName}
+                onChangeText={setAddName}
+              />
+            </View>
+
+            {/* Phone */}
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 6 }}>No. HP / Telepon</Text>
+              <TextInput
+                style={{ height: 44, backgroundColor: "#e5eaf7", borderRadius: 12, paddingHorizontal: 14, fontSize: 14, color: "#00072d" }}
+                placeholder="Contoh: 08123..."
+                placeholderTextColor="#64748b"
+                keyboardType="phone-pad"
+                value={addPhone}
+                onChangeText={setAddPhone}
+              />
+            </View>
+
+            {/* Tipe Pembeli Dropdown choice */}
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 8 }}>Tipe Pelanggan</Text>
+              <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                {["pengecer", "grosir", "perorangan", "lainnya"].map((type) => {
+                  const isSel = addType === type;
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      onPress={() => setAddType(type)}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 8,
+                        backgroundColor: isSel ? Colors.navy : "#f0f4f9",
+                        borderWidth: 1,
+                        borderColor: isSel ? Colors.navy : "#e5eaf7",
+                      }}
+                    >
+                      <Text style={{ color: isSel ? "#ffffff" : "#00072d", fontSize: 11, fontWeight: "bold", textTransform: "capitalize" }}>
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Actions */}
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <Pressable
+                disabled={isSavingAdd}
+                onPress={() => setShowAddModal(false)}
+                style={{ flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: "#051650", alignItems: "center", justifyContent: "center" }}
+              >
+                <Text style={{ color: "#051650", fontWeight: "bold", fontSize: 13 }}>Batal</Text>
+              </Pressable>
+              <Pressable
+                disabled={isSavingAdd}
+                onPress={handleSaveAdd}
+                style={{ flex: 1, height: 44, backgroundColor: "#123499", borderRadius: 12, alignItems: "center", justifyContent: "center" }}
+              >
+                {isSavingAdd ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={{ color: "#ffffff", fontWeight: "bold", fontSize: 13 }}>Simpan</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <VoiceInputModal
+        visible={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        formType="buyer"
+        onSuccess={handleVoiceSuccess}
+      />
     </SafeAreaView>
   );
 }

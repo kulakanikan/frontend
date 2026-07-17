@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import Svg, { Path } from "react-native-svg";
 import { fontSize as rfs } from "../src/utils/responsive";
 import FishLogo from "../src/components/FishLogo";
+import { useAuthStore } from "../src/store";
 
 // Small fish SVG component
 const SmallFish = ({ color = "#ffffff", flip = false }) => (
@@ -132,8 +133,11 @@ export default function LoadingScreen() {
   const textOpacityAnim = useRef(new Animated.Value(0)).current;
   const textTranslateYAnim = useRef(new Animated.Value(20)).current;
 
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+
   useEffect(() => {
-    // 1. Sequence: Fade in logo, then slide in text
+    // 1. Entrance animation sequence: Fade in logo, then slide in text
     Animated.sequence([
       Animated.parallel([
         Animated.timing(opacityAnim, {
@@ -162,9 +166,14 @@ export default function LoadingScreen() {
         }),
       ]),
     ]).start();
+  }, []);
 
-    // 2. Transition to login (onboarding overlay) after 3 seconds
-    const timer = setTimeout(() => {
+  useEffect(() => {
+    if (isLoading) return;
+
+    let timer: NodeJS.Timeout;
+
+    const navigateAway = () => {
       Animated.parallel([
         Animated.timing(opacityAnim, {
           toValue: 0,
@@ -177,12 +186,24 @@ export default function LoadingScreen() {
           useNativeDriver: true,
         }),
       ]).start(() => {
-        router.replace("/(auth)/login");
+        if (isAuthenticated) {
+          router.replace("/(tabs)");
+        } else {
+          router.replace("/(auth)/login");
+        }
       });
-    }, 3000);
+    };
+
+    if (isAuthenticated) {
+      // If already logged in, navigate away quickly (after a tiny delay so they see the entrance transition)
+      timer = setTimeout(navigateAway, 1000);
+    } else {
+      // If not logged in, wait the standard time so they see the full splash screen
+      timer = setTimeout(navigateAway, 2800);
+    }
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [isLoading, isAuthenticated]);
 
   return (
     <View style={styles.container}>

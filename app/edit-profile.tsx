@@ -1,78 +1,94 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   ScrollView,
   Pressable,
-  SafeAreaView,
   TextInput,
   Image,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import * as ImagePicker from "expo-image-picker";
-import { useAuthStore } from "../src/store";
+import { useProfileStore, useAuthStore } from "../src/store";
 import { Colors, Type, Shadow, SharedStyles } from "../src/constants/theme";
 import { wp, spacing, fontSize as rfs, radius, iconSize } from "../src/utils/responsive";
 
 export default function EditProfileScreen() {
   const router = useRouter();
-  const { user, updateProfile } = useAuthStore();
+  const { user } = useAuthStore();
+  const { profile, fetchProfile, updateProfile, isSaving } = useProfileStore();
 
-  const [name, setName] = useState(user?.nama || "");
-  const [email, setEmail] = useState(user?.email || "");
-  const [phone, setPhone] = useState(user?.teleponUsaha || "");
-  const [avatarUri, setAvatarUri] = useState(user?.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [hasInitialized, setHasInitialized] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!profile) {
+      fetchProfile().catch((err) => console.error("Failed to load profile", err));
+    }
+  }, [profile, fetchProfile]);
+
+  useEffect(() => {
+    if (profile && !hasInitialized) {
+      setName(profile.nama_usaha || "");
+      setPhone(profile.telepon_usaha || "");
+      setHasInitialized(true);
+    }
+  }, [profile, hasInitialized]);
 
   // Changes detector
   const hasChanges =
-    name.trim() !== (user?.nama || "") ||
-    email.trim() !== (user?.email || "") ||
-    phone.trim() !== (user?.teleponUsaha || "") ||
-    avatarUri !== (user?.avatarUrl || "");
+    name.trim() !== (profile?.nama_usaha || "") ||
+    phone.trim() !== (profile?.telepon_usaha || "");
 
-  // Image Picker Logic
-  const handlePickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      alert("Maaf, kami memerlukan izin akses galeri foto untuk mengubah gambar profil!");
+  const handleSave = async () => {
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+
+    if (!trimmedName) {
+      alert("Nama usaha tidak boleh kosong!");
+      return;
+    }
+    if (!trimmedPhone) {
+      alert("Nomor telepon tidak boleh kosong!");
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+    // Validation: only digits, min 9 characters
+    const digitsOnly = /^[0-9]+$/;
+    if (!digitsOnly.test(trimmedPhone)) {
+      alert("Nomor telepon hanya boleh berisi angka!");
+      return;
+    }
+    if (trimmedPhone.length < 9) {
+      alert("Nomor telepon minimal berisi 9 karakter!");
+      return;
+    }
 
-    if (!result.canceled && result.assets && result.assets[0].uri) {
-      setAvatarUri(result.assets[0].uri);
+    try {
+      await updateProfile({
+        nama_usaha: trimmedName,
+        telepon_usaha: trimmedPhone,
+      });
+
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+        router.back();
+      }, 1500);
+    } catch (err) {
+      alert("Gagal memperbarui profil. Silakan coba lagi.");
     }
   };
 
-  const handleSave = () => {
-    if (!name.trim()) {
-      alert("Nama tidak boleh kosong!");
-      return;
-    }
-    if (!phone.trim()) {
-      alert("Nomor HP tidak boleh kosong!");
-      return;
-    }
-
-    updateProfile({ nama_usaha: name.trim(), telepon_usaha: phone.trim() });
-
-    setSaveSuccess(true);
-    // Return back to profile screen after success animation completes
-    setTimeout(() => {
-      setSaveSuccess(false);
-      router.back();
-    }, 1500);
-  };
+  const displayAvatar = profile?.avatar_url || user?.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80";
+  const displayGoogleName = profile?.nama_google || user?.nama || "-";
+  const displayEmail = profile?.email || user?.email || "-";
 
   return (
     <SafeAreaView style={SharedStyles.screen}>
@@ -91,14 +107,14 @@ export default function EditProfileScreen() {
         </Pressable>
 
         <Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: "bold" }}>
-          Edit Profil
+          Edit Profil Usaha
         </Text>
 
         <Pressable
           onPress={handleSave}
-          disabled={!hasChanges}
+          disabled={!hasChanges || isSaving}
           style={({ pressed }) => ({
-            backgroundColor: hasChanges
+            backgroundColor: hasChanges && !isSaving
               ? (pressed ? "#15803d" : "#22c55e")
               : "rgba(255, 255, 255, 0.1)",
             paddingHorizontal: 12,
@@ -108,15 +124,19 @@ export default function EditProfileScreen() {
             alignItems: "center",
           })}
         >
-          <Text
-            style={{
-              color: hasChanges ? "#ffffff" : Colors.textMuted,
-              fontWeight: "bold",
-              fontSize: 13,
-            }}
-          >
-            Simpan
-          </Text>
+          {isSaving ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <Text
+              style={{
+                color: hasChanges ? "#ffffff" : Colors.textMuted,
+                fontWeight: "bold",
+                fontSize: 13,
+              }}
+            >
+              Simpan
+            </Text>
+          )}
         </Pressable>
       </View>
 
@@ -140,85 +160,62 @@ export default function EditProfileScreen() {
 
           {/* Profile Picture Header Block */}
           <View style={{ alignItems: "center", marginBottom: spacing(28), marginTop: spacing(10) }}>
-            <Pressable
-              onPress={handlePickImage}
-              style={({ pressed }) => ({
-                opacity: pressed ? 0.8 : 1,
-                position: "relative",
-              })}
-            >
-              <Image
-                source={{ uri: avatarUri }}
-                style={{
-                  width: wp(120),
-                  height: wp(120),
-                  borderRadius: wp(60),
-                  borderWidth: 4,
-                  borderColor: Colors.royalBlue,
-                }}
-              />
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 2,
-                  right: 2,
-                  backgroundColor: Colors.royalBlue,
-                  width: wp(32),
-                  height: wp(32),
-                  borderRadius: wp(16),
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderWidth: 2.5,
-                  borderColor: Colors.card,
-                }}
-              >
-                <Ionicons name="camera" size={iconSize(14)} color={Colors.textWhite} />
-              </View>
-            </Pressable>
-
-            {/* Clickable text helper to trigger image picker */}
-            <Pressable onPress={handlePickImage} style={{ marginTop: spacing(8) }}>
-              <Text style={{ color: Colors.royalBlue, fontSize: rfs(13), fontWeight: "bold", textDecorationLine: "underline" }}>
-                Ubah Foto Profil
-              </Text>
-            </Pressable>
+            <Image
+              source={{ uri: displayAvatar }}
+              style={{
+                width: wp(120),
+                height: wp(120),
+                borderRadius: wp(60),
+                borderWidth: 4,
+                borderColor: Colors.royalBlue,
+              }}
+            />
+            <Text style={{ color: Colors.textMuted, fontSize: rfs(12), marginTop: spacing(10), textAlign: "center" }}>
+              Foto profil & email terhubung dengan akun Google Anda
+            </Text>
           </View>
 
           {/* Form edit profil */}
           <View style={SharedStyles.formCard}>
             <Text style={{ ...Type.h3, marginBottom: spacing(16) }}>
-              Detail Informasi Akun
+              Detail Profil Usaha
             </Text>
 
-            {/* Name Input */}
+            {/* Nama Google (Read-only) */}
+            <View style={{ marginBottom: spacing(16), opacity: 0.7 }}>
+              <Text style={{ ...Type.label, marginBottom: spacing(8) }}>Nama Google (Sesuai Akun)</Text>
+              <TextInput
+                style={[SharedStyles.input, { backgroundColor: "rgba(0,0,0,0.03)" }]}
+                value={displayGoogleName}
+                editable={false}
+              />
+            </View>
+
+            {/* Email (Read-only) */}
+            <View style={{ marginBottom: spacing(16), opacity: 0.7 }}>
+              <Text style={{ ...Type.label, marginBottom: spacing(8) }}>Email</Text>
+              <TextInput
+                style={[SharedStyles.input, { backgroundColor: "rgba(0,0,0,0.03)" }]}
+                value={displayEmail}
+                editable={false}
+              />
+            </View>
+
+            {/* Nama Usaha (Editable) */}
             <View style={{ marginBottom: spacing(16) }}>
-              <Text style={{ ...Type.label, marginBottom: spacing(8) }}>Nama Lengkap</Text>
+              <Text style={{ ...Type.label, marginBottom: spacing(8) }}>Nama Usaha</Text>
               <TextInput
                 style={SharedStyles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Masukkan nama lengkap"
+                placeholder="Masukkan nama usaha Anda"
                 placeholderTextColor={Colors.textMuted}
               />
             </View>
 
-            {/* Email Input */}
+            {/* Phone Input (Editable) */}
             <View style={{ marginBottom: spacing(16) }}>
-              <Text style={{ ...Type.label, marginBottom: spacing(8) }}>Email</Text>
-              <TextInput
-                style={SharedStyles.input}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                placeholder="email@example.com"
-                placeholderTextColor={Colors.textMuted}
-              />
-            </View>
-
-            {/* Phone Input */}
-            <View style={{ marginBottom: spacing(16) }}>
-              <Text style={{ ...Type.label, marginBottom: spacing(8) }}>Nomor WhatsApp / Telepon</Text>
+              <Text style={{ ...Type.label, marginBottom: spacing(8) }}>Nomor WhatsApp / Telepon Usaha</Text>
               <TextInput
                 style={SharedStyles.input}
                 value={phone}
@@ -232,12 +229,12 @@ export default function EditProfileScreen() {
             {/* Ubah Profil Button inside Form Card */}
             <Pressable
               onPress={handleSave}
-              disabled={!hasChanges}
+              disabled={!hasChanges || isSaving}
               style={({ pressed }) => [
                 SharedStyles.primaryButton,
                 {
                   flexDirection: "row",
-                  backgroundColor: hasChanges
+                  backgroundColor: hasChanges && !isSaving
                     ? (pressed ? Colors.successDark : Colors.success)
                     : Colors.textMuted,
                   marginTop: spacing(20),
@@ -245,9 +242,13 @@ export default function EditProfileScreen() {
                 },
               ]}
             >
-              <Ionicons name="checkmark-circle-outline" size={iconSize(18)} color={Colors.textWhite} style={{ marginRight: spacing(8) }} />
+              {isSaving ? (
+                <ActivityIndicator size="small" color="#ffffff" style={{ marginRight: spacing(8) }} />
+              ) : (
+                <Ionicons name="checkmark-circle-outline" size={iconSize(18)} color={Colors.textWhite} style={{ marginRight: spacing(8) }} />
+              )}
               <Text style={{ color: Colors.textWhite, fontSize: rfs(14), fontWeight: "bold" }}>
-                Ubah Profil
+                {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
               </Text>
             </Pressable>
           </View>

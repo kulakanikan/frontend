@@ -1,4 +1,7 @@
-import { useCallback, useRef, useState, useEffect } from "react";
+import React, { useCallback, useRef, useState, useEffect } from "react";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
+import { useAuthStore } from "../../src/store";
+import { GOOGLE_OAUTH } from "../../src/constants";
 import {
   View,
   Text,
@@ -452,6 +455,14 @@ export default function LoginScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
   const slidesRef = useRef<FlatList>(null);
 
+  const googleLogin = useAuthStore((s) => s.googleLogin);
+  const devLogin = useAuthStore((s) => s.devLogin);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  // isDev: gunakan devLogin, skip Google OAuth hook sepenuhnya
+  const isDev = process.env.EXPO_PUBLIC_APP_ENV === "development";
+
   // Responsive SVG scale factor
   const fishScale = Math.min(W / 390, 1.15);
 
@@ -516,12 +527,43 @@ export default function LoginScreen() {
     }
   }, [currentIndex, finishOnboarding]);
 
-  const handleGoogleLogin = useCallback(() => {
-    hideSheet();
-    setTimeout(() => {
+  const handleGoogleLogin = useCallback(async () => {
+    setLoginError(null);
+
+    // Mode development: selalu gunakan devLogin, tidak perlu Google OAuth
+    if (isDev) {
+      try {
+        setIsSigningIn(true);
+        await devLogin();
+        hideSheet();
+        router.replace("/(tabs)");
+      } catch {
+        setLoginError("Dev login gagal. Pastikan backend berjalan di port 3000.");
+        setIsSigningIn(false);
+      }
+      return;
+    }
+
+    // Production: real Google OAuth via native picker
+    try {
+      setIsSigningIn(true);
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken;
+      if (!idToken) throw new Error("No id_token returned");
+      await googleLogin(idToken);
+      hideSheet();
       router.replace("/(tabs)");
-    }, 400);
-  }, [hideSheet]);
+    } catch (error: any) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        setLoginError("Login Google dibatalkan.");
+      } else {
+        setLoginError("Login Google gagal. Coba lagi.");
+      }
+    } finally {
+      setIsSigningIn(false);
+    }
+  }, [isDev, hideSheet, devLogin, googleLogin]);
 
   // Bring onboarding back
   const showOnboarding = useCallback(() => {
@@ -798,7 +840,19 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
 
+          {loginError && (
+            <View style={{ marginTop: 12, paddingHorizontal: 8 }}>
+              <Text style={{ color: "#EF4444", fontSize: 13, textAlign: "center" }}>
+                {loginError}
+              </Text>
+            </View>
+          )}
 
+          {isSigningIn && (
+            <View style={{ marginTop: 12, alignItems: "center" }}>
+              <Text style={{ color: "#6B7280", fontSize: 13 }}>Memproses login...</Text>
+            </View>
+          )}
 
           <Text style={styles.termsText}>
             By signing in, you agree to our{" "}

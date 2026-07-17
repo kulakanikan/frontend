@@ -8,7 +8,8 @@ interface FishState {
   transactions: Transaction[];
   isLoading: boolean;
   
-  fetchStocks: () => Promise<void>;
+  fetchStocks: (params?: { status?: string; jenis_ikan?: string }) => Promise<void>;
+  fetchStockDetail: (id: string) => Promise<FishStock>;
   fetchCustomers: () => Promise<void>;
   fetchTransactions: () => Promise<void>;
   fetchAll: () => Promise<void>;
@@ -32,8 +33,9 @@ const mapBatchToStock = (batch: ApiBatch): FishStock => ({
   },
   quantity: Number(batch.berat),
   buy_price: Number(batch.hargaBeliPerKg),
-  sell_price: Number(batch.hargaBeliPerKg) * 1.2, // Default mock sell price, UI will overwrite
+  sell_price: 0, // No mock sell price, input during transactions
   supplier_id: batch.supplierId,
+  supplier_name: batch.suppliers?.namaNelayan,
   batch_date: batch.diterimaAt.split("T")[0],
   notes: batch.kondisiKualitas || undefined,
   addons: [], // We need a way to fetch expenses or just keep it empty initially
@@ -84,15 +86,39 @@ export const useFishStore = create<FishState>((set, get) => ({
   transactions: [],
   isLoading: false,
 
-  fetchStocks: async () => {
+  fetchStocks: async (params) => {
     set({ isLoading: true });
     try {
-      const res = await batchesApi.list();
+      const res = await batchesApi.list(params);
       set({ fishStocks: res.batches.map(mapBatchToStock) });
     } catch (error) {
       console.error("Failed to fetch stocks:", error);
     } finally {
       set({ isLoading: false });
+    }
+  },
+
+  fetchStockDetail: async (id) => {
+    set({ isLoading: true });
+    try {
+      const res = await batchesApi.get(id);
+      const stock = mapBatchToStock(res.batch);
+      // Map batch expenses to addons
+      stock.addons = (res.batch.expenses || []).map((exp) => ({
+        id: exp.id,
+        name: exp.jenisBiaya,
+        price: Number(exp.jumlah),
+      }));
+      // Update local state
+      set((state) => ({
+        fishStocks: state.fishStocks.map((fs) => (fs.id === id ? stock : fs)),
+        isLoading: false,
+      }));
+      return stock;
+    } catch (error) {
+      console.error("Failed to fetch stock detail:", error);
+      set({ isLoading: false });
+      throw error;
     }
   },
 

@@ -1,9 +1,10 @@
 /**
  * Auth Store - Zustand
  * Manages authentication state globally.
- * Connected to Backend API via /auth endpoints.
+ * Token stored in expo-secure-store (hardware-backed keychain).
  */
 import { create } from "zustand";
+import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { authApi, profileApi } from "../services/api";
 import type { ApiUser } from "../services/api";
@@ -15,7 +16,6 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
 
-  // Actions
   setUser: (user: ApiUser) => void;
   devLogin: () => Promise<void>;
   googleLogin: (idToken: string) => Promise<void>;
@@ -23,6 +23,27 @@ interface AuthState {
   setLoading: (loading: boolean) => void;
   loadStoredAuth: () => Promise<void>;
   updateProfile: (data: { nama_usaha?: string | null; telepon_usaha?: string | null }) => Promise<void>;
+}
+
+/** Save JWT to hardware-backed secure storage */
+async function saveToken(token: string) {
+  await SecureStore.setItemAsync(STORAGE_KEYS.AUTH_TOKEN, token);
+}
+
+/** Remove JWT from secure storage */
+async function clearToken() {
+  try {
+    await SecureStore.deleteItemAsync(STORAGE_KEYS.AUTH_TOKEN);
+  } catch (_) {}
+}
+
+/** Read JWT from secure storage */
+async function readToken(): Promise<string | null> {
+  try {
+    return await SecureStore.getItemAsync(STORAGE_KEYS.AUTH_TOKEN);
+  } catch (_) {
+    return null;
+  }
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -33,12 +54,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setUser: (user) => set({ user }),
 
-  /** DEV login — uses hardcoded demo google_sub */
+  /** DEV login — uses hardcoded demo google_sub (development only) */
   devLogin: async () => {
     set({ isLoading: true });
     try {
       const result = await authApi.devLogin("demo_google_sub_12345");
-      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, result.token);
+      await saveToken(result.token);
       set({
         user: result.user,
         token: result.token,
@@ -52,12 +73,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  /** Google OAuth login */
+  /** Google OAuth login — idToken comes from expo-auth-session */
   googleLogin: async (idToken: string) => {
     set({ isLoading: true });
     try {
       const result = await authApi.googleLogin(idToken);
-      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, result.token);
+      await saveToken(result.token);
       set({
         user: result.user,
         token: result.token,
@@ -71,11 +92,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  /** Logout — clear token and state */
   logout: async () => {
     try {
-      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-    } catch (_) {}
+      const { GoogleSignin } = require("@react-native-google-signin/google-signin");
+      await GoogleSignin.signOut().catch(() => {});
+      await GoogleSignin.revokeAccess().catch(() => {});
+    } catch (e) {
+      console.warn("Failed to sign out from Google Sign-In native client:", e);
+    }
+    await clearToken();
     set({
       user: null,
       token: null,
@@ -86,16 +111,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setLoading: (isLoading) => set({ isLoading }),
 
-  /** Try to restore auth from stored token on app start */
+  /**
+   * Restore session on app start.
+   * Reads JWT from SecureStore → validates via GET /auth/me.
+   * On failure (token expired/invalid), clears token and sets unauthenticated.
+   */
   loadStoredAuth: async () => {
     set({ isLoading: true });
     try {
-      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      const token = await readToken();
       if (!token) {
         set({ isLoading: false });
         return;
       }
-      // Validate the token by calling /auth/me
+      // Validate token freshness — /auth/me returns 401 if expired
       const { user } = await authApi.me();
       set({
         user,
@@ -103,11 +132,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (err) {
-      // Token invalid/expired — clear it
-      try {
-        await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-      } catch (_) {}
+    } catch (_) {
+      await clearToken();
       set({
         user: null,
         token: null,
@@ -121,7 +147,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updateProfile: async (data) => {
     try {
       await profileApi.update(data);
-      // Refresh full profile
       const profile = await profileApi.get();
       const currentUser = get().user;
       if (currentUser) {
