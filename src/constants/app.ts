@@ -1,20 +1,31 @@
-/**
- * Application-wide constants and configuration values.
- * Centralizes magic strings and numbers for maintainability.
- */
+import Constants from "expo-constants";
 
 export const APP_NAME = "Kulakan Ikan";
 export const APP_VERSION = "1.0.0";
+
+const getApiUrl = (): string => {
+  // Use explicitly defined environment variable if present
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+  // In development, automatically resolve local host machine IP
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const ip = hostUri.split(":")[0];
+    return `http://${ip}:8000/api`;
+  }
+  return "http://localhost:8000/api";
+};
 
 /**
  * API Configuration
  * Override with environment variables in production.
  */
 export const API = {
-  BASE_URL: process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000/api",
+  BASE_URL: getApiUrl(),
   TIMEOUT: 15000,
   RETRY_COUNT: 3,
-} as const;
+};
 
 /**
  * Storage Keys
