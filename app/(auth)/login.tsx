@@ -3,6 +3,7 @@ import {
   View,
   Text,
   Pressable,
+  TouchableOpacity,
   Image,
   Animated,
   Dimensions,
@@ -676,7 +677,7 @@ export default function LoginScreen() {
       {onboardingVisible && (
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: onboardingOpacity, zIndex: 50, justifyContent: "flex-end", backgroundColor: "rgba(5, 22, 80, 0.85)" }]}>
           
-          <View style={{ paddingBottom: H * 0.05, paddingTop: H * 0.02 }}>
+          <View style={{ paddingBottom: Platform.OS === "ios" ? 54 : 36, paddingTop: 12 }}>
             <FlatList
               style={{ height: H * 0.22 }}
               data={ONBOARDING_DATA}
@@ -724,18 +725,35 @@ export default function LoginScreen() {
             </View>
 
             {/* Action Button */}
-            <View style={{ paddingHorizontal: wp(28) }}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.getStartedButton,
-                  pressed && styles.buttonPressed,
-                ]}
+            <View style={{ paddingHorizontal: wp(28), width: "100%" }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#ffffff",
+                  paddingVertical: Platform.OS === "ios" ? 18 : 16,
+                  borderRadius: 100,
+                  width: "100%",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: "#00072d",
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 6,
+                }}
+                activeOpacity={0.85}
                 onPress={scrollToNext}
               >
-                <Text style={styles.getStartedText}>
+                <Text
+                  style={{
+                    color: "#00072d",
+                    fontSize: rfs(16),
+                    fontWeight: "800",
+                    textAlign: "center",
+                  }}
+                >
                   {currentIndex === ONBOARDING_DATA.length - 1 ? "Get Started" : "Next"}
                 </Text>
-              </Pressable>
+              </TouchableOpacity>
             </View>
           </View>
         </Animated.View>
@@ -766,12 +784,10 @@ export default function LoginScreen() {
             Use your Google account to start managing your fishery business
           </Text>
 
-          <Pressable
+          <TouchableOpacity
             onPress={handleGoogleLogin}
-            style={({ pressed }) => [
-              styles.googleButton,
-              pressed && styles.googleButtonPressed,
-            ]}
+            style={styles.googleButton}
+            activeOpacity={0.85}
           >
             <Image
               source={require("../../assets/images/google-logo.png")}
@@ -780,7 +796,7 @@ export default function LoginScreen() {
             <Text style={styles.googleButtonText}>
               Continue with Google
             </Text>
-          </Pressable>
+          </TouchableOpacity>
 
 
 
