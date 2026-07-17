@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useCallback } from "react";
 import {
   View,
   Text,
@@ -6,32 +6,32 @@ import {
   Pressable,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useFishStore, useAuthStore } from "../../src/store";
+import { useFishStore, useAuthStore, useDashboardStore } from "../../src/store";
 import { Colors, Type, Shadow, SharedStyles } from "../../src/constants/theme";
 import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../../src/utils/responsive";
+import { formatCurrency, formatWeight } from "../../src/utils";
 import FishLogo from "../../src/components/FishLogo";
 
 export default function HomeTab() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { fishStocks, transactions, fetchAll } = useFishStore();
+  const { transactions, fetchAll } = useFishStore();
+  const { summary, fetchSummary, isLoading } = useDashboardStore();
 
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+  // Refresh data whenever the tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchSummary().catch((err) => console.error("Failed to load dashboard summary:", err));
+      fetchAll().catch((err) => console.error("Failed to load fish store data:", err));
+    }, [fetchSummary, fetchAll])
+  );
 
-  // Calculations for stats
-  const totalQuantity = fishStocks.reduce((sum, item) => sum + item.quantity, 0);
-  const totalOverall = transactions.reduce((sum, tx) => sum + tx.total_amount, 0);
-  const totalEarned = transactions
-    .filter((tx) => tx.payment_status === "paid")
-    .reduce((sum, tx) => sum + tx.total_amount, 0);
-
-  // Recent transactions list
+  // Recent transactions list from local store
   const recentTransactions = [...transactions]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 3);
@@ -60,7 +60,7 @@ export default function HomeTab() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ paddingHorizontal: spacing(16) }}>
-          {/* Main Card (Visa Style) */}
+          {/* Main Card (Visa Style) — Omzet */}
           <View style={{
             backgroundColor: Colors.cardBlue,
             borderRadius: radius(24),
@@ -68,39 +68,87 @@ export default function HomeTab() {
             marginBottom: spacing(16),
             ...Shadow.cardLift,
           }}>
-            <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(32) }]}>
+            <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(24) }]}>
               <Ionicons name="card-outline" size={iconSize(24)} color="#ffffff" />
               <Text style={{ color: "#ffffff", opacity: 0.8, fontWeight: "600", fontSize: rfs(12) }}>Omset Bisnis</Text>
             </View>
             <View>
-              <Text style={{ color: "#ffffff", fontSize: rfs(12), opacity: 0.8, marginBottom: 4 }}>Total Omset Keseluruhan</Text>
-              <Text style={{ color: "#ffffff", fontSize: rfs(28), fontWeight: "900" }} numberOfLines={1} adjustsFontSizeToFit>
-                Rp {totalOverall.toLocaleString()}
-              </Text>
+              <Text style={{ color: "#ffffff", fontSize: rfs(12), opacity: 0.8, marginBottom: 4 }}>Total Omset</Text>
+              {isLoading && !summary ? (
+                <ActivityIndicator size="small" color="#ffffff" style={{ alignSelf: "flex-start" }} />
+              ) : (
+                <Text style={{ color: "#ffffff", fontSize: rfs(28), fontWeight: "900" }} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatCurrency(summary?.omzet || 0)}
+                </Text>
+              )}
             </View>
           </View>
 
-          {/* Secondary Card (Lunas) */}
-          <View style={{
-            backgroundColor: Colors.royalBlueLight,
-            borderRadius: radius(24),
-            padding: spacing(20),
-            marginBottom: spacing(28),
-          }}>
-            <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(24) }]}>
-              <Ionicons name="wallet-outline" size={iconSize(24)} color="#ffffff" />
-              <Text style={{ color: "#ffffff", opacity: 0.9, fontWeight: "600", fontSize: rfs(12) }}>Total Lunas</Text>
+          {/* Grid row for Laba Bersih, Stok Tersisa, and Piutang */}
+          <View style={{ flexDirection: "row", gap: spacing(8), marginBottom: spacing(24) }}>
+            {/* Laba Bersih */}
+            <View style={{
+              flex: 1,
+              backgroundColor: Colors.royalBlueLight,
+              borderRadius: radius(20),
+              padding: spacing(12),
+              justifyContent: "space-between",
+              height: hp(85),
+            }}>
+              <Text style={{ color: "#ffffff", opacity: 0.9, fontWeight: "700", fontSize: rfs(11) }}>Laba Bersih</Text>
+              {isLoading && !summary ? (
+                <ActivityIndicator size="small" color="#ffffff" style={{ alignSelf: "flex-start" }} />
+              ) : (
+                <Text style={{ color: "#ffffff", fontSize: rfs(13), fontWeight: "800" }} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatCurrency(summary?.laba_riil_total || 0)}
+                </Text>
+              )}
             </View>
-            <View>
-              <Text style={{ color: "#ffffff", fontSize: rfs(22), fontWeight: "800" }} numberOfLines={1} adjustsFontSizeToFit>
-                Rp {totalEarned.toLocaleString()}
-              </Text>
+
+            {/* Stok Tersisa */}
+            <View style={{
+              flex: 1,
+              backgroundColor: Colors.royalBlueLight,
+              borderRadius: radius(20),
+              padding: spacing(12),
+              justifyContent: "space-between",
+              height: hp(85),
+            }}>
+              <Text style={{ color: "#ffffff", opacity: 0.9, fontWeight: "700", fontSize: rfs(11) }}>Stok Gudang</Text>
+              {isLoading && !summary ? (
+                <ActivityIndicator size="small" color="#ffffff" style={{ alignSelf: "flex-start" }} />
+              ) : (
+                <Text style={{ color: "#ffffff", fontSize: rfs(13), fontWeight: "800" }} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatWeight(summary?.stok_tersisa_kg || 0)}
+                </Text>
+              )}
+            </View>
+
+            {/* Total Piutang */}
+            <View style={{
+              flex: 1,
+              backgroundColor: (summary?.total_piutang || 0) > 0 ? "rgba(245, 158, 11, 0.15)" : Colors.royalBlueLight,
+              borderWidth: (summary?.total_piutang || 0) > 0 ? 1.5 : 0,
+              borderColor: "#f59e0b",
+              borderRadius: radius(20),
+              padding: spacing(12),
+              justifyContent: "space-between",
+              height: hp(85),
+            }}>
+              <Text style={{ color: (summary?.total_piutang || 0) > 0 ? "#d97706" : "#ffffff", opacity: 0.9, fontWeight: "700", fontSize: rfs(11) }}>Piutang Tempo</Text>
+              {isLoading && !summary ? (
+                <ActivityIndicator size="small" color={(summary?.total_piutang || 0) > 0 ? "#d97706" : "#ffffff"} style={{ alignSelf: "flex-start" }} />
+              ) : (
+                <Text style={{ color: (summary?.total_piutang || 0) > 0 ? "#d97706" : "#ffffff", fontSize: rfs(13), fontWeight: "800" }} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatCurrency(summary?.total_piutang || 0)}
+                </Text>
+              )}
             </View>
           </View>
 
           {/* Activities Row */}
           <Text style={{ ...Type.h2, marginBottom: spacing(16) }}>Aktivitas Cepat</Text>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: spacing(32) }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: spacing(28) }}>
             {[
               { icon: "add-circle", label: "Tambah", action: () => router.push("/input-barang") },
               { icon: "swap-horizontal", label: "Transaksi", action: () => router.push("/transactions") },
@@ -130,14 +178,50 @@ export default function HomeTab() {
           </View>
         </View>
 
+        {/* Top Batch Section */}
+        {summary?.top_batch && summary.top_batch.length > 0 && (
+          <View style={{ paddingHorizontal: spacing(16), marginBottom: spacing(12) }}>
+            <Text style={{ ...Type.h2, marginBottom: spacing(12) }}>Batch Paling Menguntungkan</Text>
+            {summary.top_batch.map((batch: any) => (
+              <View key={batch.id} style={{
+                backgroundColor: "#ffffff",
+                borderRadius: radius(16),
+                padding: spacing(16),
+                marginBottom: spacing(8),
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                ...Shadow.card,
+              }}>
+                <View>
+                  <Text style={{ color: Colors.textPrimary, fontSize: rfs(14), fontWeight: "bold" }}>
+                    Ikan {batch.jenis_ikan}
+                  </Text>
+                  <Text style={{ color: Colors.textMuted, fontSize: rfs(11), marginTop: 2 }}>
+                    Diterima: {new Date(batch.diterima_at).toLocaleDateString("id-ID", { month: "short", day: "numeric", year: "numeric" })}
+                  </Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={{ color: Colors.success, fontSize: rfs(14), fontWeight: "bold" }}>
+                    +{formatCurrency(Number(batch.laba_riil))}
+                  </Text>
+                  <Text style={{ color: Colors.textMuted, fontSize: rfs(10), marginTop: 2 }}>
+                    Laba Bersih
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Transactions Bottom Sheet */}
         <View style={{
           backgroundColor: Colors.navy,
           borderTopLeftRadius: radius(32),
           borderTopRightRadius: radius(32),
           padding: spacing(24),
-          minHeight: hp(400),
-          marginTop: spacing(8),
+          minHeight: hp(320),
+          marginTop: spacing(16),
         }}>
           <View style={{ alignItems: "center", marginBottom: spacing(16) }}>
             <View style={{ width: 40, height: 4, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 2 }} />
@@ -173,7 +257,7 @@ export default function HomeTab() {
                   </View>
                 </View>
                 <Text style={{ color: "#ffffff", fontSize: rfs(14), fontWeight: "bold" }}>
-                  Rp {tx.total_amount.toLocaleString()}
+                  {formatCurrency(tx.total_amount)}
                 </Text>
               </View>
             ))
