@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -101,7 +102,7 @@ export default function ProfileTab() {
           </View>
 
           {/* Phone */}
-          <View style={[SharedStyles.row, { paddingVertical: spacing(14), borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.05)" }]}>
+          <View style={[SharedStyles.row, { paddingVertical: spacing(14) }]}>
             <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.background, alignItems: "center", justifyContent: "center", marginRight: spacing(14) }}>
               <Ionicons name="call" size={iconSize(16)} color={Colors.royalBlue} />
             </View>
@@ -110,30 +111,35 @@ export default function ProfileTab() {
               <Text style={{ color: Colors.navy, fontSize: rfs(14), fontWeight: "700" }}>{user?.teleponUsaha || "-"}</Text>
             </View>
           </View>
-
-          {/* Logout */}
-          <Pressable 
-            onPress={() => {
-              useAuthStore.getState().logout();
-              router.replace("/(auth)/login");
-            }}
-            style={({ pressed }) => ([
-              SharedStyles.row, {
-                paddingVertical: spacing(16),
-                marginTop: spacing(8),
-                opacity: pressed ? 0.6 : 1
-              }
-            ])}
-          >
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(239, 68, 68, 0.1)", alignItems: "center", justifyContent: "center", marginRight: spacing(14) }}>
-              <Ionicons name="log-out" size={iconSize(16)} color={Colors.danger} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: Colors.danger, fontSize: rfs(14), fontWeight: "800" }}>Keluar Aplikasi</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={iconSize(18)} color={Colors.textMuted} />
-          </Pressable>
         </View>
+
+        {/* Logout Button (Prominent Danger Button) */}
+        <TouchableOpacity
+          onPress={() => {
+            useAuthStore.getState().logout();
+            router.replace("/(auth)/login");
+          }}
+          style={{
+            backgroundColor: Colors.danger,
+            height: 52,
+            borderRadius: radius(16),
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            marginTop: spacing(24),
+            shadowColor: Colors.danger,
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.2,
+            shadowRadius: 12,
+            elevation: 4,
+          }}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="log-out-outline" size={iconSize(20)} color="#ffffff" style={{ marginRight: spacing(8) }} />
+          <Text style={{ color: "#ffffff", fontSize: rfs(15), fontWeight: "800" }}>
+            Keluar Aplikasi
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
