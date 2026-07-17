@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   Pressable,
-  SafeAreaView,
   TextInput,
   Platform,
   Alert,
@@ -12,8 +11,9 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { useBuyerStore, useTransactionStore } from "../src/store";
@@ -21,10 +21,12 @@ import { Colors, Type, Shadow, SharedStyles } from "../src/constants/theme";
 import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../src/utils/responsive";
 import { formatCurrency, formatWeight } from "../src/utils";
 import { salesApi, type ApiBuyer, type ApiSale, type ApiSaleDetail } from "../src/services/api";
+import VoiceInputModal from "../src/components/VoiceInputModal";
 
 export default function BuyerHistoryScreen() {
   const router = useRouter();
-  const { buyers, fetchBuyers, updateBuyer } = useBuyerStore();
+  const params = useLocalSearchParams();
+  const { buyers, fetchBuyers, addBuyer, updateBuyer } = useBuyerStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBuyer, setSelectedBuyer] = useState<ApiBuyer | null>(null);
   
@@ -39,6 +41,42 @@ export default function BuyerHistoryScreen() {
   const [editPhone, setEditPhone] = useState("");
   const [editType, setEditType] = useState("perorangan");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Add Buyer State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addPhone, setAddPhone] = useState("");
+  const [addType, setAddType] = useState("perorangan");
+  const [isSavingAdd, setIsSavingAdd] = useState(false);
+
+  // Voice AI Modal state
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+
+  const handleVoiceSuccess = (suggestion: any) => {
+    if (suggestion.nama) setAddName(suggestion.nama);
+    if (suggestion.telepon) setAddPhone(suggestion.telepon);
+    if (suggestion.tipe_pembeli) setAddType(suggestion.tipe_pembeli.toLowerCase());
+    setShowAddModal(true);
+  };
+
+  // Auto-open Add Modal if parameter open_add passed
+  useEffect(() => {
+    if (params.open_add === "true") {
+      setAddName((params.nama as string) || "");
+      setAddPhone((params.telepon as string) || "");
+      
+      const incomingType = params.tipe_pembeli as string;
+      if (incomingType && ["pengecer", "grosir", "perorangan", "lainnya"].includes(incomingType.toLowerCase())) {
+        setAddType(incomingType.toLowerCase());
+      } else {
+        setAddType("perorangan");
+      }
+      
+      setShowAddModal(true);
+      // Clear route params so it won't open again on re-render
+      router.setParams({ open_add: undefined, nama: undefined, telepon: undefined, tipe_pembeli: undefined });
+    }
+  }, [params.open_add]);
 
   // Fetch buyers list on focus
   useFocusEffect(
@@ -124,6 +162,38 @@ export default function BuyerHistoryScreen() {
       alert("Gagal memperbarui data pembeli");
     } finally {
       setIsSavingEdit(false);
+    }
+  };
+
+  const handleSaveAdd = async () => {
+    if (!addName.trim()) {
+      alert("Nama pembeli wajib diisi");
+      return;
+    }
+
+    setIsSavingAdd(true);
+    try {
+      // Auto-prefix phone with +62 if entered as 08
+      let formattedPhone = addPhone.trim();
+      if (formattedPhone.startsWith("08")) {
+        formattedPhone = "+628" + formattedPhone.slice(2);
+      }
+
+      await addBuyer({
+        nama: addName.trim(),
+        telepon: formattedPhone || undefined,
+        tipe_pembeli: addType,
+      });
+
+      setShowAddModal(false);
+      setAddName("");
+      setAddPhone("");
+      setAddType("perorangan");
+      alert("Data pembeli baru berhasil disimpan");
+    } catch (err) {
+      alert("Gagal menambahkan data pembeli baru");
+    } finally {
+      setIsSavingAdd(false);
     }
   };
 
@@ -382,21 +452,64 @@ export default function BuyerHistoryScreen() {
             {selectedBuyer ? selectedBuyer.nama : "Manajemen Pelanggan"}
           </Text>
         </View>
-        {selectedBuyer && (
-          <Pressable
-            onPress={handleOpenEdit}
-            style={({ pressed }) => ({
-              ...SharedStyles.headerSaveButton,
-              backgroundColor: pressed ? "rgba(0, 7, 45, 0.15)" : "rgba(0, 7, 45, 0.08)",
-              borderWidth: 1,
-              borderColor: Colors.royalBlue,
-            })}
-          >
-            <Text style={{ color: Colors.royalBlue, fontSize: rfs(12), fontWeight: "700" }}>
-              Edit Info
-            </Text>
-          </Pressable>
-        )}
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {!selectedBuyer && (
+            <Pressable
+              onPress={() => setShowVoiceModal(true)}
+              style={({ pressed }) => ({
+                marginRight: 8,
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: pressed ? "rgba(96, 165, 250, 0.15)" : "rgba(96, 165, 250, 0.08)",
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: "rgba(96, 165, 250, 0.2)",
+              })}
+            >
+              <Ionicons name="mic" size={18} color={Colors.royalBlue} />
+            </Pressable>
+          )}
+
+          {selectedBuyer ? (
+            <Pressable
+              onPress={handleOpenEdit}
+              style={({ pressed }) => ({
+                ...SharedStyles.headerSaveButton,
+                backgroundColor: pressed ? "rgba(0, 7, 45, 0.15)" : "rgba(0, 7, 45, 0.08)",
+                borderWidth: 1,
+                borderColor: Colors.royalBlue,
+              })}
+            >
+              <Text style={{ color: Colors.royalBlue, fontSize: rfs(12), fontWeight: "700" }}>
+                Edit Info
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => {
+                setAddName("");
+                setAddPhone("");
+                setAddType("perorangan");
+                setShowAddModal(true);
+              }}
+              style={({ pressed }) => ({
+                ...SharedStyles.headerSaveButton,
+                backgroundColor: pressed ? "rgba(18, 52, 153, 0.15)" : "transparent",
+                borderWidth: 1.5,
+                borderColor: "#123499",
+              })}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                <Ionicons name="add" size={14} color="#123499" />
+                <Text style={{ color: "#123499", fontSize: rfs(11), fontWeight: "700" }}>
+                  Tambah
+                </Text>
+              </View>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       <View style={[SharedStyles.content, { padding: spacing(16) }]}>
@@ -727,6 +840,100 @@ export default function BuyerHistoryScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal Tambah Pelanggan Baru */}
+      <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,7,45,0.4)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: "#ffffff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: 400 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <Text style={{ fontSize: 18, fontWeight: "bold", color: "#00072d" }}>Tambah Pelanggan Baru</Text>
+              <Pressable onPress={() => setShowAddModal(false)}>
+                <Ionicons name="close" size={24} color="#00072d" />
+              </Pressable>
+            </View>
+
+            {/* Name */}
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 6 }}>Nama Pelanggan *</Text>
+              <TextInput
+                style={{ height: 44, backgroundColor: "#e5eaf7", borderRadius: 12, paddingHorizontal: 14, fontSize: 14, color: "#00072d" }}
+                value={addName}
+                onChangeText={setAddName}
+              />
+            </View>
+
+            {/* Phone */}
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 6 }}>No. HP / Telepon</Text>
+              <TextInput
+                style={{ height: 44, backgroundColor: "#e5eaf7", borderRadius: 12, paddingHorizontal: 14, fontSize: 14, color: "#00072d" }}
+                placeholder="Contoh: 08123..."
+                placeholderTextColor="#64748b"
+                keyboardType="phone-pad"
+                value={addPhone}
+                onChangeText={setAddPhone}
+              />
+            </View>
+
+            {/* Tipe Pembeli Dropdown choice */}
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "600", marginBottom: 8 }}>Tipe Pelanggan</Text>
+              <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                {["pengecer", "grosir", "perorangan", "lainnya"].map((type) => {
+                  const isSel = addType === type;
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      onPress={() => setAddType(type)}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 8,
+                        backgroundColor: isSel ? Colors.navy : "#f0f4f9",
+                        borderWidth: 1,
+                        borderColor: isSel ? Colors.navy : "#e5eaf7",
+                      }}
+                    >
+                      <Text style={{ color: isSel ? "#ffffff" : "#00072d", fontSize: 11, fontWeight: "bold", textTransform: "capitalize" }}>
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Actions */}
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <Pressable
+                disabled={isSavingAdd}
+                onPress={() => setShowAddModal(false)}
+                style={{ flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: "#051650", alignItems: "center", justifyContent: "center" }}
+              >
+                <Text style={{ color: "#051650", fontWeight: "bold", fontSize: 13 }}>Batal</Text>
+              </Pressable>
+              <Pressable
+                disabled={isSavingAdd}
+                onPress={handleSaveAdd}
+                style={{ flex: 1, height: 44, backgroundColor: "#123499", borderRadius: 12, alignItems: "center", justifyContent: "center" }}
+              >
+                {isSavingAdd ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={{ color: "#ffffff", fontWeight: "bold", fontSize: 13 }}>Simpan</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <VoiceInputModal
+        visible={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        formType="buyer"
+        onSuccess={handleVoiceSuccess}
+      />
     </SafeAreaView>
   );
 }

@@ -6,17 +6,18 @@ import {
   ScrollView,
   Pressable,
   Platform,
-  SafeAreaView,
   KeyboardAvoidingView,
   Modal,
   FlatList,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../src/utils/responsive";
 import { Colors, Type, Shadow, SharedStyles } from "../src/constants/theme";
 import { useFishStore, useSupplierStore } from "../src/store";
+import VoiceInputModal from "../src/components/VoiceInputModal";
 
 export default function InputBarangScreen() {
   const router = useRouter();
@@ -30,6 +31,9 @@ export default function InputBarangScreen() {
   const [quality, setQuality] = useState((params.kondisi_kualitas as string) || "");
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // Voice AI Modal state
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+
   // Supplier store integration
   const { suppliers, fetchSuppliers, addSupplier, isLoading: isSupplierLoading } = useSupplierStore();
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
@@ -42,6 +46,27 @@ export default function InputBarangScreen() {
   const [newSupplierPhone, setNewSupplierPhone] = useState("");
   const [newSupplierAddress, setNewSupplierAddress] = useState("");
   const [isSavingSupplier, setIsSavingSupplier] = useState(false);
+
+  const handleVoiceSuccess = (suggestion: any) => {
+    if (suggestion.jenis_ikan) setName(suggestion.jenis_ikan);
+    if (suggestion.berat !== null) setQuantity(String(suggestion.berat));
+    if (suggestion.harga_beli_per_kg !== null) setBuyPrice(String(suggestion.harga_beli_per_kg));
+    if (suggestion.kondisi_kualitas) setQuality(suggestion.kondisi_kualitas.toLowerCase());
+    
+    // Try to match supplier name
+    if (suggestion.nama_supplier) {
+      const matched = suppliers.find(s => 
+        s.namaNelayan.toLowerCase().includes(suggestion.nama_supplier.toLowerCase())
+      );
+      if (matched) {
+        setSelectedSupplierId(matched.id);
+      } else {
+        // Auto-prefill supplier name in supplier creation modal
+        setNewSupplierName(suggestion.nama_supplier);
+        setShowNewSupplierModal(true);
+      }
+    }
+  };
 
   // Validation
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -159,19 +184,39 @@ export default function InputBarangScreen() {
             >
               <Ionicons name="chevron-back" size={iconSize(24)} color={Colors.textPrimary} />
             </Pressable>
-            <Text style={Type.headerTitle}>Tambah Stok Barang</Text>
+            <Text style={Type.headerTitle}>Tambah Stok</Text>
           </View>
-          <Pressable
-            onPress={handleSave}
-            style={({ pressed }) => ({
-              ...SharedStyles.headerSaveButton,
-              backgroundColor: pressed ? Colors.successDark : Colors.success,
-            })}
-          >
-            <Text style={{ color: Colors.textWhite, fontSize: rfs(13), fontWeight: "700" }}>
-              Simpan
-            </Text>
-          </Pressable>
+          
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Pressable
+              onPress={() => setShowVoiceModal(true)}
+              style={({ pressed }) => ({
+                marginRight: 10,
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: pressed ? "rgba(96, 165, 250, 0.15)" : "rgba(96, 165, 250, 0.08)",
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: "rgba(96, 165, 250, 0.2)",
+              })}
+            >
+              <Ionicons name="mic" size={18} color={Colors.royalBlue} />
+            </Pressable>
+
+            <Pressable
+              onPress={handleSave}
+              style={({ pressed }) => ({
+                ...SharedStyles.headerSaveButton,
+                backgroundColor: pressed ? Colors.successDark : Colors.success,
+              })}
+            >
+              <Text style={{ color: Colors.textWhite, fontSize: rfs(13), fontWeight: "700" }}>
+                Simpan
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Content */}
@@ -568,6 +613,13 @@ export default function InputBarangScreen() {
         </Modal>
 
       </KeyboardAvoidingView>
+
+      <VoiceInputModal
+        visible={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        formType="batch"
+        onSuccess={handleVoiceSuccess}
+      />
     </SafeAreaView>
   );
 }

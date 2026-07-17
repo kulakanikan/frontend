@@ -507,7 +507,11 @@ export default function TransactionsTab() {
                 <Pressable
                   onPress={() => {
                     setShowDetailModal(false);
-                    router.push(`/receipts/${saleDetail.id}`);
+                    if (saleDetail.receipt?.id) {
+                      router.push(`/receipts/${saleDetail.receipt.id}`);
+                    } else {
+                      alert("Struk belum digenerate untuk transaksi ini");
+                    }
                   }}
                   style={({ pressed }) => ({
                     height: 46,

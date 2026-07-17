@@ -92,8 +92,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  /** Logout — delete token and clear state */
   logout: async () => {
+    try {
+      const { GoogleSignin } = require("@react-native-google-signin/google-signin");
+      await GoogleSignin.signOut().catch(() => {});
+      await GoogleSignin.revokeAccess().catch(() => {});
+    } catch (e) {
+      console.warn("Failed to sign out from Google Sign-In native client:", e);
+    }
     await clearToken();
     set({
       user: null,

@@ -1,10 +1,7 @@
-import { useCallback, useRef, useState, useEffect } from "react";
-import * as Google from "expo-auth-session/providers/google";
-import * as WebBrowser from "expo-web-browser";
+import React, { useCallback, useRef, useState, useEffect } from "react";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { useAuthStore } from "../../src/store";
 import { GOOGLE_OAUTH } from "../../src/constants";
-
-WebBrowser.maybeCompleteAuthSession();
 import {
   View,
   Text,
@@ -466,38 +463,6 @@ export default function LoginScreen() {
   // isDev: gunakan devLogin, skip Google OAuth hook sepenuhnya
   const isDev = process.env.EXPO_PUBLIC_APP_ENV === "development";
 
-  // Gunakan dummy client ID jika kosong (misal di mode development) agar hook tidak crash saat mount.
-  // Karena di mode dev promptAsync tidak akan dipanggil, dummy ini aman.
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: GOOGLE_OAUTH.ANDROID_CLIENT_ID || "dummy-android-client-id",
-    webClientId: GOOGLE_OAUTH.WEB_CLIENT_ID || "dummy-web-client-id.apps.googleusercontent.com",
-  });
-
-  useEffect(() => {
-    if (!response) return;
-    if (response?.type === "success") {
-      const { id_token } = response.params;
-      if (!id_token) {
-        setLoginError("Google login gagal: id_token tidak ditemukan");
-        setIsSigningIn(false);
-        return;
-      }
-      setIsSigningIn(true);
-      googleLogin(id_token)
-        .then(() => {
-          router.replace("/(tabs)");
-        })
-        .catch((err) => {
-          console.error("Login error:", err);
-          setLoginError("Login gagal. Coba lagi.");
-          setIsSigningIn(false);
-        });
-    } else if (response?.type === "error") {
-      setLoginError("Google login dibatalkan atau gagal.");
-      setIsSigningIn(false);
-    }
-  }, [response]);
-
   // Responsive SVG scale factor
   const fishScale = Math.min(W / 390, 1.15);
 
@@ -579,9 +544,26 @@ export default function LoginScreen() {
       return;
     }
 
-    // Production: real Google OAuth via native picker / browser
-    await promptAsync();
-  }, [isDev, hideSheet, devLogin, promptAsync]);
+    // Production: real Google OAuth via native picker
+    try {
+      setIsSigningIn(true);
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken;
+      if (!idToken) throw new Error("No id_token returned");
+      await googleLogin(idToken);
+      hideSheet();
+      router.replace("/(tabs)");
+    } catch (error: any) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        setLoginError("Login Google dibatalkan.");
+      } else {
+        setLoginError("Login Google gagal. Coba lagi.");
+      }
+    } finally {
+      setIsSigningIn(false);
+    }
+  }, [isDev, hideSheet, devLogin, googleLogin]);
 
   // Bring onboarding back
   const showOnboarding = useCallback(() => {

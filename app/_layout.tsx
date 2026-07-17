@@ -5,6 +5,9 @@ import { Stack, router, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
 import { useAuthStore } from "../src/store";
+import { configureGoogleSignin } from "../src/lib/google-signin";
+
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 export default function RootLayout() {
   const segments = useSegments();
@@ -12,8 +15,9 @@ export default function RootLayout() {
   const isLoading = useAuthStore((s) => s.isLoading);
   const loadStoredAuth = useAuthStore((s) => s.loadStoredAuth);
 
-  // On first mount, try to restore session from SecureStore
+  // On first mount, try to restore session from SecureStore and configure Google Sign-In
   useEffect(() => {
+    configureGoogleSignin();
     loadStoredAuth();
   }, []);
 
@@ -35,19 +39,21 @@ export default function RootLayout() {
   }, [isAuthenticated, segments, isLoading]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#ffffff" }}>
-      <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: "#ffffff" },
-          animation: "slide_from_right",
-        }}
-      >
-        <Stack.Screen name="index" options={{ headerShown: false, animation: "none" }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false, animation: "fade" }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-    </View>
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: "#ffffff" }}>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: "#ffffff" },
+            animation: "slide_from_right",
+          }}
+        >
+          <Stack.Screen name="index" options={{ headerShown: false, animation: "none" }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false, animation: "fade" }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+      </View>
+    </SafeAreaProvider>
   );
 }

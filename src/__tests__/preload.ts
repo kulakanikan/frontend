@@ -41,3 +41,47 @@ mock.module("expo-router", () => ({
     replace: () => {},
   },
 }));
+
+// Mock @react-native-google-signin/google-signin
+mock.module("@react-native-google-signin/google-signin", () => ({
+  GoogleSignin: {
+    configure: () => {},
+    hasPlayServices: async () => true,
+    signIn: async () => ({
+      data: { idToken: "dummy-native-id-token" },
+    }),
+    signOut: async () => {},
+    revokeAccess: async () => {},
+  },
+  statusCodes: {
+    SIGN_IN_CANCELLED: "SIGN_IN_CANCELLED",
+  },
+}));
+
+// Mock expo-av
+mock.module("expo-av", () => ({
+  Audio: {
+    requestPermissionsAsync: async () => ({ status: "granted" }),
+    setAudioModeAsync: async () => {},
+    Recording: class {
+      prepareToRecordAsync() {}
+      startAsync() {}
+      stopAndUnloadAsync() {}
+      getURI() { return "file:///dummy.m4a"; }
+      static createAsync() {
+        return Promise.resolve({
+          recording: new this(),
+          status: {},
+        });
+      }
+    },
+  },
+}));
+
+// Mock expo-file-system
+mock.module("expo-file-system", () => ({
+  readAsStringAsync: async () => "dummy-base64-string",
+  EncodingType: {
+    Base64: "base64",
+  },
+}));

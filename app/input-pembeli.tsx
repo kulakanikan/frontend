@@ -6,9 +6,9 @@ import {
   ScrollView,
   Pressable,
   Platform,
-  SafeAreaView,
   KeyboardAvoidingView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../src/utils/responsive";
@@ -16,6 +16,7 @@ import { Colors, Type, Shadow, SharedStyles } from "../src/constants/theme";
 import { useFishStore, useBuyerStore, useTransactionStore } from "../src/store";
 import { FishStock } from "../src/types";
 import { formatCurrency, formatWeight } from "../src/utils";
+import VoiceInputModal from "../src/components/VoiceInputModal";
 
 export default function InputPembeliScreen() {
   const router = useRouter();
@@ -36,13 +37,36 @@ export default function InputPembeliScreen() {
   const [paymentMethod, setPaymentMethod] = useState<"lunas" | "tempo">((params.status_bayar as "lunas" | "tempo") || "lunas");
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // Voice AI Modal state
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+
   // Form validations
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handleVoiceSuccess = (suggestion: any) => {
+    if (suggestion.nama_pembeli) setBuyerName(suggestion.nama_pembeli);
+    if (suggestion.jenis_ikan) setFishName(suggestion.jenis_ikan);
+    if (suggestion.berat_jual !== null) setQuantity(String(suggestion.berat_jual));
+    if (suggestion.harga_satuan !== null) setSellPrice(String(suggestion.harga_satuan));
+    if (suggestion.status_bayar) setPaymentMethod(suggestion.status_bayar === "tempo" ? "tempo" : "lunas");
+  };
 
   useEffect(() => {
     fetchStocks().catch((err) => console.error(err));
     fetchBuyers().catch((err) => console.error(err));
   }, [fetchStocks, fetchBuyers]);
+
+  // Auto-set price if fishName is pre-filled from Voice but price was not parsed
+  useEffect(() => {
+    if (fishName && fishStocks.length > 0 && !sellPrice) {
+      const match = fishStocks.find(
+        (fs) => fs.fish_type.name.toLowerCase() === fishName.toLowerCase()
+      );
+      if (match) {
+        setSellPrice(String(match.sell_price || match.buy_price));
+      }
+    }
+  }, [fishName, fishStocks, sellPrice]);
 
   // Filter customers for dropdown search
   const filteredCustomers = buyers.filter((b) =>
@@ -129,7 +153,7 @@ export default function InputPembeliScreen() {
       }
 
       // 2. Submit transaction to database
-      await createSale({
+      const newSale = await createSale({
         batch_id: matchedFish!.id,
         buyer_id: buyerId,
         berat_jual: qtyNum,
@@ -141,7 +165,11 @@ export default function InputPembeliScreen() {
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
-        router.replace("/transactions");
+        if (newSale.receipt?.id) {
+          router.replace(`/receipts/${newSale.receipt.id}`);
+        } else {
+          router.replace("/transactions");
+        }
       }, 1500);
     } catch (err) {
       alert("Gagal menyimpan transaksi");
@@ -166,19 +194,39 @@ export default function InputPembeliScreen() {
             >
               <Ionicons name="chevron-back" size={iconSize(24)} color={Colors.textPrimary} />
             </Pressable>
-            <Text style={Type.headerTitle}>Input Transaksi Pembeli</Text>
+            <Text style={Type.headerTitle}>Input Transaksi</Text>
           </View>
-          <Pressable
-            onPress={handleSave}
-            style={({ pressed }) => ({
-              ...SharedStyles.headerSaveButton,
-              backgroundColor: pressed ? Colors.successDark : Colors.success,
-            })}
-          >
-            <Text style={{ color: Colors.textWhite, fontSize: rfs(13), fontWeight: "700" }}>
-              Simpan
-            </Text>
-          </Pressable>
+          
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Pressable
+              onPress={() => setShowVoiceModal(true)}
+              style={({ pressed }) => ({
+                marginRight: 10,
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: pressed ? "rgba(96, 165, 250, 0.15)" : "rgba(96, 165, 250, 0.08)",
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: "rgba(96, 165, 250, 0.2)",
+              })}
+            >
+              <Ionicons name="mic" size={18} color={Colors.royalBlue} />
+            </Pressable>
+
+            <Pressable
+              onPress={handleSave}
+              style={({ pressed }) => ({
+                ...SharedStyles.headerSaveButton,
+                backgroundColor: pressed ? Colors.successDark : Colors.success,
+              })}
+            >
+              <Text style={{ color: Colors.textWhite, fontSize: rfs(13), fontWeight: "700" }}>
+                Simpan
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <ScrollView
@@ -533,6 +581,13 @@ export default function InputPembeliScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <VoiceInputModal
+        visible={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        formType="sale"
+        onSuccess={handleVoiceSuccess}
+      />
     </SafeAreaView>
   );
 }
