@@ -275,7 +275,7 @@ export default function TransactionsTab() {
                       {formatCurrency(Number(tx.total))}
                     </Text>
                   </View>
-                  {tx.saleExtras.map((extra) => (
+                  {tx.saleExtras?.map((extra) => (
                     <View key={extra.id} style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(4) }]}>
                       <Text style={{ fontSize: rfs(11), color: "rgba(255,255,255,0.6)" }}>
                         + {extra.namaItem} ({extra.jumlah}x)
@@ -369,7 +369,7 @@ export default function TransactionsTab() {
                     </Text>
                   </View>
                   
-                  {saleDetail.saleExtras.map((extra) => (
+                  {saleDetail.saleExtras?.map((extra) => (
                     <View key={extra.id} style={[SharedStyles.row, { justifyContent: "space-between", paddingVertical: 8 }]}>
                       <View>
                         <Text style={{ color: "#00072d", fontSize: 13 }}>+ {extra.namaItem}</Text>

@@ -3,11 +3,13 @@ import "../global.css";
 import { useEffect } from "react";
 import { Stack, router, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View } from "react-native";
+import { View, LogBox } from "react-native";
 import { useAuthStore } from "../src/store";
 import { configureGoogleSignin } from "../src/lib/google-signin";
 
 import { SafeAreaProvider } from "react-native-safe-area-context";
+
+LogBox.ignoreLogs(["Unable to activate keep awake"]);
 
 export default function RootLayout() {
   const segments = useSegments();

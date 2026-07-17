@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -42,6 +42,27 @@ export default function InputPembeliScreen() {
 
   // Form validations
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  interface SaleExtraItem {
+    nama_item: string;
+    jumlah: number;
+    harga_satuan: number;
+  }
+  const [extras, setExtras] = useState<SaleExtraItem[]>([]);
+  const [showExtraForm, setShowExtraForm] = useState(false);
+  const [extraName, setExtraName] = useState("");
+  const [extraQty, setExtraQty] = useState("");
+  const [extraPrice, setExtraPrice] = useState("");
+
+  const timerRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
 
   const handleVoiceSuccess = (suggestion: any) => {
     if (suggestion.nama_pembeli) setBuyerName(suggestion.nama_pembeli);
@@ -99,7 +120,8 @@ export default function InputPembeliScreen() {
   const calculateTotal = () => {
     const qty = Number(quantity) || 0;
     const price = Number(sellPrice) || 0;
-    return qty * price;
+    const extrasTotal = extras.reduce((sum, item) => sum + (item.jumlah * item.harga_satuan), 0);
+    return (qty * price) + extrasTotal;
   };
 
   const handleSave = async () => {
@@ -134,14 +156,13 @@ export default function InputPembeliScreen() {
     }
 
     setErrors({});
-
+    
     try {
-      // 1. Check if customer already exists in store, if not, create new
-      let buyerId = "";
+      // 1. Create or match customer/buyer first
       const matchedBuyer = buyers.find(
         (b) => b.nama.toLowerCase() === buyerName.trim().toLowerCase()
       );
-
+      let buyerId = "";
       if (matchedBuyer) {
         buyerId = matchedBuyer.id;
       } else {
@@ -160,10 +181,11 @@ export default function InputPembeliScreen() {
         harga_satuan: priceNum,
         status_bayar: paymentMethod,
         tanggal: new Date().toISOString(),
+        extras: extras,
       });
 
       setShowSuccess(true);
-      setTimeout(() => {
+      timerRef.current = setTimeout(() => {
         setShowSuccess(false);
         if (newSale.receipt?.id) {
           router.replace(`/receipts/${newSale.receipt.id}`);
@@ -179,7 +201,7 @@ export default function InputPembeliScreen() {
   return (
     <SafeAreaView style={SharedStyles.screen}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
       >
         {/* Header */}
@@ -195,37 +217,6 @@ export default function InputPembeliScreen() {
               <Ionicons name="chevron-back" size={iconSize(24)} color={Colors.textPrimary} />
             </Pressable>
             <Text style={Type.headerTitle}>Input Transaksi</Text>
-          </View>
-          
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Pressable
-              onPress={() => setShowVoiceModal(true)}
-              style={({ pressed }) => ({
-                marginRight: 10,
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: pressed ? "rgba(96, 165, 250, 0.15)" : "rgba(96, 165, 250, 0.08)",
-                alignItems: "center",
-                justifyContent: "center",
-                borderWidth: 1,
-                borderColor: "rgba(96, 165, 250, 0.2)",
-              })}
-            >
-              <Ionicons name="mic" size={18} color={Colors.royalBlue} />
-            </Pressable>
-
-            <Pressable
-              onPress={handleSave}
-              style={({ pressed }) => ({
-                ...SharedStyles.headerSaveButton,
-                backgroundColor: pressed ? Colors.successDark : Colors.success,
-              })}
-            >
-              <Text style={{ color: Colors.textWhite, fontSize: rfs(13), fontWeight: "700" }}>
-                Simpan
-              </Text>
-            </Pressable>
           </View>
         </View>
 
@@ -272,16 +263,16 @@ export default function InputPembeliScreen() {
                       left: 0,
                       right: 0,
                       backgroundColor: "#ffffff",
-                      borderRadius: 12,
+                      borderRadius: radius(12),
                       borderWidth: 1.5,
-                      borderColor: "#123499",
-                      maxHeight: 150,
+                      borderColor: Colors.royalBlue,
+                      maxHeight: 200,
                       overflow: "hidden",
-                      elevation: 5,
-                      shadowColor: "#123499",
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 6,
+                      elevation: 8,
+                      shadowColor: Colors.navy,
+                      shadowOffset: { width: 0, height: 6 },
+                      shadowOpacity: 0.15,
+                      shadowRadius: 10,
                       zIndex: 9999,
                     }}
                   >
@@ -291,16 +282,26 @@ export default function InputPembeliScreen() {
                           key={cust.id}
                           onPress={() => handleSelectCustomer(cust.nama)}
                           style={({ pressed }) => ({
-                            paddingVertical: 12,
-                            paddingHorizontal: 14,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            paddingVertical: spacing(12),
+                            paddingHorizontal: spacing(16),
                             borderBottomWidth: 1,
                             borderBottomColor: "#e5eaf7",
                             backgroundColor: pressed ? "#e5eaf7" : "#ffffff",
                           })}
                         >
-                          <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "500" }}>
-                            {cust.nama}
-                          </Text>
+                          <Ionicons name="person-circle-outline" size={20} color={Colors.royalBlue} style={{ marginRight: 10 }} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: Colors.textPrimary, fontSize: rfs(14), fontWeight: "600" }}>
+                              {cust.nama}
+                            </Text>
+                            {cust.telepon ? (
+                              <Text style={{ color: Colors.textMuted, fontSize: rfs(11), marginTop: 2 }}>
+                                {cust.telepon}
+                              </Text>
+                            ) : null}
+                          </View>
                         </Pressable>
                       ))}
                     </ScrollView>
@@ -347,16 +348,16 @@ export default function InputPembeliScreen() {
                       left: 0,
                       right: 0,
                       backgroundColor: "#ffffff",
-                      borderRadius: 12,
-                      borderWidth: 1.2,
-                      borderColor: "rgba(18, 52, 153, 0.25)",
-                      maxHeight: 150,
+                      borderRadius: radius(12),
+                      borderWidth: 1.5,
+                      borderColor: Colors.royalBlue,
+                      maxHeight: 200,
                       overflow: "hidden",
-                      elevation: 5,
-                      shadowColor: "#123499",
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 6,
+                      elevation: 8,
+                      shadowColor: Colors.navy,
+                      shadowOffset: { width: 0, height: 6 },
+                      shadowOpacity: 0.15,
+                      shadowRadius: 10,
                       zIndex: 9999,
                     }}
                   >
@@ -366,16 +367,24 @@ export default function InputPembeliScreen() {
                           key={stock.id}
                           onPress={() => handleSelectFish(stock)}
                           style={({ pressed }) => ({
-                            paddingVertical: 12,
-                            paddingHorizontal: 14,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            paddingVertical: spacing(12),
+                            paddingHorizontal: spacing(16),
                             borderBottomWidth: 1,
                             borderBottomColor: "#e5eaf7",
                             backgroundColor: pressed ? "#e5eaf7" : "#ffffff",
                           })}
                         >
-                          <Text style={{ color: "#00072d", fontSize: 13, fontWeight: "500" }}>
-                            {stock.fish_type.name} (Tersedia: {stock.quantity} Kg)
-                          </Text>
+                          <Ionicons name="fish-outline" size={20} color={Colors.royalBlue} style={{ marginRight: 10 }} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: Colors.textPrimary, fontSize: rfs(14), fontWeight: "600" }}>
+                              Ikan {stock.fish_type.name}
+                            </Text>
+                            <Text style={{ color: Colors.textMuted, fontSize: rfs(11), marginTop: 2 }}>
+                              Stok: {formatWeight(Number(stock.quantity))} | Harga Beli: {formatCurrency(Number(stock.buy_price))}/Kg
+                            </Text>
+                          </View>
                         </Pressable>
                       ))}
                     </ScrollView>
@@ -491,6 +500,191 @@ export default function InputPembeliScreen() {
               </View>
             </View>
 
+             {/* Biaya Tambahan / Extras Section */}
+            <View style={{ marginBottom: 20, borderTopWidth: 1, borderTopColor: "#e5eaf7", paddingTop: 16 }}>
+              <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "600", marginBottom: 8 }}>
+                Biaya Tambahan / Extras (Opsional)
+              </Text>
+              
+              {extras.length === 0 ? (
+                <Text style={{ color: Colors.textMuted, fontSize: rfs(12), fontStyle: "italic", marginBottom: 12 }}>
+                  Belum ada biaya tambahan (misal: es batu, plastik, ongkir).
+                </Text>
+              ) : (
+                <View style={{ marginBottom: 12 }}>
+                  {extras.map((item, idx) => (
+                    <View
+                      key={idx}
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        backgroundColor: "#f8fafc",
+                        padding: 10,
+                        borderRadius: radius(8),
+                        marginBottom: 6,
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: "#00072d", fontSize: rfs(13), fontWeight: "600" }}>
+                          {item.nama_item}
+                        </Text>
+                        <Text style={{ color: Colors.textMuted, fontSize: rfs(11) }}>
+                          {item.jumlah}x @ {formatCurrency(item.harga_satuan)}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                        <Text style={{ color: "#00072d", fontSize: rfs(13), fontWeight: "bold" }}>
+                          {formatCurrency(item.jumlah * item.harga_satuan)}
+                        </Text>
+                        <Pressable
+                          onPress={() => {
+                            setExtras(extras.filter((_, i) => i !== idx));
+                          }}
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                        </Pressable>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Toggle Inline Extra Form */}
+              {!showExtraForm ? (
+                <Pressable
+                  onPress={() => setShowExtraForm(true)}
+                  style={{
+                    alignSelf: "flex-start",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    paddingVertical: 6,
+                    paddingHorizontal: 12,
+                    backgroundColor: "rgba(43, 120, 228, 0.1)",
+                    borderRadius: radius(8),
+                  }}
+                >
+                  <Ionicons name="add-circle-outline" size={16} color={Colors.royalBlue} />
+                  <Text style={{ color: Colors.royalBlue, fontSize: rfs(12), fontWeight: "700" }}>
+                    Tambah Biaya Lainnya
+                  </Text>
+                </Pressable>
+              ) : (
+                <View style={{ backgroundColor: "#f0f4fc", padding: 12, borderRadius: radius(12), borderWidth: 1, borderColor: "rgba(43, 120, 228, 0.2)" }}>
+                  <Text style={{ color: "#00072d", fontSize: rfs(12), fontWeight: "bold", marginBottom: 8 }}>
+                    Form Biaya Tambahan
+                  </Text>
+                  <TextInput
+                    style={{
+                      height: 38,
+                      backgroundColor: "#ffffff",
+                      borderRadius: radius(8),
+                      paddingHorizontal: 10,
+                      fontSize: rfs(12),
+                      color: "#00072d",
+                      marginBottom: 8,
+                    }}
+                    placeholder="Nama item (misal: Es Batu, Plastik)"
+                    placeholderTextColor="#94a3b8"
+                    value={extraName}
+                    onChangeText={setExtraName}
+                  />
+                  <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
+                    <TextInput
+                      style={{
+                        flex: 1,
+                        height: 38,
+                        backgroundColor: "#ffffff",
+                        borderRadius: radius(8),
+                        paddingHorizontal: 10,
+                        fontSize: rfs(12),
+                        color: "#00072d",
+                      }}
+                      placeholder="Jumlah"
+                      placeholderTextColor="#94a3b8"
+                      keyboardType="numeric"
+                      value={extraQty}
+                      onChangeText={setExtraQty}
+                    />
+                    <TextInput
+                      style={{
+                        flex: 2,
+                        height: 38,
+                        backgroundColor: "#ffffff",
+                        borderRadius: radius(8),
+                        paddingHorizontal: 10,
+                        fontSize: rfs(12),
+                        color: "#00072d",
+                      }}
+                      placeholder="Harga Satuan (Rp)"
+                      placeholderTextColor="#94a3b8"
+                      keyboardType="numeric"
+                      value={extraPrice}
+                      onChangeText={setExtraPrice}
+                    />
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
+                    <Pressable
+                      onPress={() => {
+                        setShowExtraForm(false);
+                        setExtraName("");
+                        setExtraQty("");
+                        setExtraPrice("");
+                      }}
+                      style={{
+                        paddingVertical: 6,
+                        paddingHorizontal: 12,
+                        borderRadius: radius(6),
+                        backgroundColor: "#e2e8f0",
+                      }}
+                    >
+                      <Text style={{ color: Colors.textSecondary, fontSize: rfs(11), fontWeight: "bold" }}>
+                        Batal
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        if (!extraName.trim()) {
+                          alert("Nama item wajib diisi");
+                          return;
+                        }
+                        const eqty = Number(extraQty);
+                        if (!extraQty.trim() || isNaN(eqty) || eqty <= 0) {
+                          alert("Jumlah harus berupa angka lebih dari 0");
+                          return;
+                        }
+                        const eprice = Number(extraPrice);
+                        if (!extraPrice.trim() || isNaN(eprice) || eprice <= 0) {
+                          alert("Harga harus berupa angka lebih dari 0");
+                          return;
+                        }
+                        setExtras([...extras, {
+                          nama_item: extraName.trim(),
+                          jumlah: eqty,
+                          harga_satuan: eprice,
+                        }]);
+                        setExtraName("");
+                        setExtraQty("");
+                        setExtraPrice("");
+                        setShowExtraForm(false);
+                      }}
+                      style={{
+                        paddingVertical: 6,
+                        paddingHorizontal: 12,
+                        borderRadius: radius(6),
+                        backgroundColor: Colors.royalBlue,
+                      }}
+                    >
+                      <Text style={{ color: "#ffffff", fontSize: rfs(11), fontWeight: "bold" }}>
+                        Tambah
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </View>
+
             {/* Total Transaction Price Display */}
             <View
               style={{
@@ -510,29 +704,57 @@ export default function InputPembeliScreen() {
                 {formatCurrency(calculateTotal())}
               </Text>
             </View>
-
-            {/* Save Transaction Button */}
-            <Pressable
-              onPress={handleSave}
-              style={({ pressed }) => ({
-                height: 46,
-                backgroundColor: pressed ? "#15803d" : "#22c55e",
-                borderRadius: 12,
-                alignItems: "center",
-                justifyContent: "center",
-                shadowColor: "#22c55e",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.2,
-                shadowRadius: 6,
-                elevation: 3,
-              })}
-            >
-              <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "bold" }}>
-                Simpan
-              </Text>
-            </Pressable>
           </View>
         </ScrollView>
+
+        {/* Sticky Bottom Action Buttons */}
+        <View
+          style={{
+            backgroundColor: "#ffffff",
+            paddingHorizontal: spacing(16),
+            paddingVertical: spacing(12),
+            borderTopWidth: 1.5,
+            borderTopColor: "rgba(18, 52, 153, 0.1)",
+            gap: 10,
+            ...Shadow.card,
+          }}
+        >
+          <Pressable
+            onPress={handleSave}
+            style={({ pressed }) => ({
+              height: 48,
+              backgroundColor: pressed ? Colors.navyLight : Colors.navy,
+              borderRadius: radius(12),
+              alignItems: "center",
+              justifyContent: "center",
+              ...Shadow.button,
+            })}
+          >
+            <Text style={{ color: "#ffffff", fontSize: rfs(15), fontWeight: "bold" }}>
+              Simpan Transaksi
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setShowVoiceModal(true)}
+            style={({ pressed }) => ({
+              height: 48,
+              backgroundColor: pressed ? "rgba(43, 120, 228, 0.2)" : "rgba(43, 120, 228, 0.1)",
+              borderRadius: radius(12),
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1,
+              borderColor: "rgba(43, 120, 228, 0.25)",
+              flexDirection: "row",
+              gap: 8,
+            })}
+          >
+            <Ionicons name="mic" size={20} color={Colors.royalBlue} />
+            <Text style={{ color: Colors.royalBlue, fontSize: rfs(15), fontWeight: "bold" }}>
+              Input via Suara (AI)
+            </Text>
+          </Pressable>
+        </View>
 
         {/* Success Modal Overlay */}
         {showSuccess && (
