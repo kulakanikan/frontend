@@ -3,8 +3,9 @@
  * error handling, and request/response logging.
  */
 import axios, { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { API } from "@/src/constants";
+import { API, STORAGE_KEYS } from "@/src/constants";
 
 const apiClient = axios.create({
   baseURL: API.BASE_URL,
@@ -17,15 +18,18 @@ const apiClient = axios.create({
 
 /**
  * Request interceptor:
- * - Attaches auth token from secure storage
+ * - Attaches auth token from AsyncStorage
  */
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    // TODO: Get token from SecureStore
-    // const token = await SecureStore.getItemAsync(STORAGE_KEYS.AUTH_TOKEN);
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    try {
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (_) {
+      // Silently fail — token not available
+    }
     return config;
   },
   (error: AxiosError) => {
@@ -35,7 +39,7 @@ apiClient.interceptors.request.use(
 
 /**
  * Response interceptor:
- * - Handles 401 (token refresh)
+ * - Handles 401 (token expired / invalid)
  * - Standardizes error responses
  */
 apiClient.interceptors.response.use(
@@ -43,20 +47,12 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config;
-
-    // Handle 401 Unauthorized - attempt token refresh
-    if (error.response?.status === 401 && originalRequest) {
-      // TODO: Implement token refresh logic
-      // try {
-      //   const newToken = await refreshAuthToken();
-      //   originalRequest.headers.Authorization = `Bearer ${newToken}`;
-      //   return apiClient(originalRequest);
-      // } catch (refreshError) {
-      //   // Redirect to login
-      // }
+    if (error.response?.status === 401) {
+      // Clear stored token so user gets redirected to login
+      try {
+        await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      } catch (_) {}
     }
-
     return Promise.reject(error);
   },
 );

@@ -21,18 +21,18 @@ export default function EditProfileScreen() {
   const router = useRouter();
   const { user, updateProfile } = useAuthStore();
 
-  const [name, setName] = useState(user?.name || "");
+  const [name, setName] = useState(user?.nama || "");
   const [email, setEmail] = useState(user?.email || "");
-  const [phone, setPhone] = useState(user?.phone || "");
-  const [avatarUri, setAvatarUri] = useState(user?.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80");
+  const [phone, setPhone] = useState(user?.teleponUsaha || "");
+  const [avatarUri, setAvatarUri] = useState(user?.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Changes detector
   const hasChanges =
-    name.trim() !== (user?.name || "") ||
+    name.trim() !== (user?.nama || "") ||
     email.trim() !== (user?.email || "") ||
-    phone.trim() !== (user?.phone || "") ||
-    avatarUri !== (user?.avatar_url || "");
+    phone.trim() !== (user?.teleponUsaha || "") ||
+    avatarUri !== (user?.avatarUrl || "");
 
   // Image Picker Logic
   const handlePickImage = async () => {
@@ -64,7 +64,7 @@ export default function EditProfileScreen() {
       return;
     }
 
-    updateProfile(name.trim(), phone.trim(), avatarUri);
+    updateProfile({ nama_usaha: name.trim(), telepon_usaha: phone.trim() });
 
     setSaveSuccess(true);
     // Return back to profile screen after success animation completes

@@ -89,7 +89,7 @@ export default function InputPembeliScreen() {
     return qty * price;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newErrors: Record<string, string> = {};
     if (!buyerName.trim()) newErrors.buyerName = "Nama pembeli wajib diisi";
     if (!fishName.trim()) newErrors.fishName = "Nama ikan wajib diisi";
@@ -116,7 +116,7 @@ export default function InputPembeliScreen() {
     if (matchedCustomer) {
       customerId = matchedCustomer.id;
     } else {
-      const created = addCustomer({
+      const created = await addCustomer({
         name: buyerName.trim(),
         phone: "081XXXXXXXXX",
       });
@@ -135,7 +135,7 @@ export default function InputPembeliScreen() {
     } else {
       stockNotFound = true;
       // Auto-create stock item to prevent dependency issues
-      const createdStock = addStock({
+      const createdStock = await addStock({
         fish_type: {
           id: `ft-${Date.now()}`,
           name: fishName.trim(),
@@ -167,7 +167,7 @@ export default function InputPembeliScreen() {
       },
     ];
 
-    addTransaction({
+    await addTransaction({
       customer_id: customerId,
       customer_name: buyerName.trim(),
       items,

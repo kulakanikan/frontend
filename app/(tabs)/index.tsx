@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   View,
   Text,
@@ -17,7 +17,11 @@ import FishLogo from "../../src/components/FishLogo";
 export default function HomeTab() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { fishStocks, transactions } = useFishStore();
+  const { fishStocks, transactions, fetchAll } = useFishStore();
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
   // Calculations for stats
   const totalQuantity = fishStocks.reduce((sum, item) => sum + item.quantity, 0);
@@ -43,7 +47,7 @@ export default function HomeTab() {
         </View>
         <Pressable onPress={() => router.push("/profile")}>
           <Image
-            source={{ uri: user?.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" }}
+            source={{ uri: user?.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" }}
             style={{ width: wp(40), height: wp(40), borderRadius: wp(20), borderWidth: 2, borderColor: Colors.textPrimary }}
           />
         </Pressable>
