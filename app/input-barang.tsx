@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -46,6 +46,16 @@ export default function InputBarangScreen() {
   const [newSupplierPhone, setNewSupplierPhone] = useState("");
   const [newSupplierAddress, setNewSupplierAddress] = useState("");
   const [isSavingSupplier, setIsSavingSupplier] = useState(false);
+
+  const timerRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
 
   const handleVoiceSuccess = (suggestion: any) => {
     if (suggestion.jenis_ikan) setName(suggestion.jenis_ikan);
@@ -128,7 +138,7 @@ export default function InputBarangScreen() {
 
     // Show success & redirect
     setShowSuccess(true);
-    setTimeout(() => {
+    timerRef.current = setTimeout(() => {
       setShowSuccess(false);
       router.back();
     }, 1500);
@@ -169,7 +179,7 @@ export default function InputBarangScreen() {
   return (
     <SafeAreaView style={SharedStyles.screen}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
       >
         {/* Header */}
@@ -184,38 +194,7 @@ export default function InputBarangScreen() {
             >
               <Ionicons name="chevron-back" size={iconSize(24)} color={Colors.textPrimary} />
             </Pressable>
-            <Text style={Type.headerTitle}>Tambah Stok</Text>
-          </View>
-          
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Pressable
-              onPress={() => setShowVoiceModal(true)}
-              style={({ pressed }) => ({
-                marginRight: 10,
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: pressed ? "rgba(96, 165, 250, 0.15)" : "rgba(96, 165, 250, 0.08)",
-                alignItems: "center",
-                justifyContent: "center",
-                borderWidth: 1,
-                borderColor: "rgba(96, 165, 250, 0.2)",
-              })}
-            >
-              <Ionicons name="mic" size={18} color={Colors.royalBlue} />
-            </Pressable>
-
-            <Pressable
-              onPress={handleSave}
-              style={({ pressed }) => ({
-                ...SharedStyles.headerSaveButton,
-                backgroundColor: pressed ? Colors.successDark : Colors.success,
-              })}
-            >
-              <Text style={{ color: Colors.textWhite, fontSize: rfs(13), fontWeight: "700" }}>
-                Simpan
-              </Text>
-            </Pressable>
+            <Text style={Type.headerTitle}>Input Barang Masuk</Text>
           </View>
         </View>
 
@@ -365,29 +344,57 @@ export default function InputBarangScreen() {
                 <Text style={{ color: "#ef4444", fontSize: 11, marginTop: 4 }}>{errors.quality}</Text>
               )}
             </View>
-
-            {/* Save Button */}
-            <Pressable
-              onPress={handleSave}
-              style={({ pressed }) => ({
-                height: 46,
-                backgroundColor: pressed ? "#15803d" : "#22c55e",
-                borderRadius: 12,
-                alignItems: "center",
-                justifyContent: "center",
-                shadowColor: "#22c55e",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.2,
-                shadowRadius: 6,
-                elevation: 3,
-              })}
-            >
-              <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "bold" }}>
-                Simpan
-              </Text>
-            </Pressable>
           </View>
         </ScrollView>
+
+        {/* Sticky Bottom Action Buttons */}
+        <View
+          style={{
+            backgroundColor: "#ffffff",
+            paddingHorizontal: spacing(16),
+            paddingVertical: spacing(12),
+            borderTopWidth: 1.5,
+            borderTopColor: "rgba(18, 52, 153, 0.1)",
+            gap: 10,
+            ...Shadow.card,
+          }}
+        >
+          <Pressable
+            onPress={handleSave}
+            style={({ pressed }) => ({
+              height: 48,
+              backgroundColor: pressed ? Colors.navyLight : Colors.navy,
+              borderRadius: radius(12),
+              alignItems: "center",
+              justifyContent: "center",
+              ...Shadow.button,
+            })}
+          >
+            <Text style={{ color: "#ffffff", fontSize: rfs(15), fontWeight: "bold" }}>
+              Simpan Barang Masuk
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setShowVoiceModal(true)}
+            style={({ pressed }) => ({
+              height: 48,
+              backgroundColor: pressed ? "rgba(43, 120, 228, 0.2)" : "rgba(43, 120, 228, 0.1)",
+              borderRadius: radius(12),
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1,
+              borderColor: "rgba(43, 120, 228, 0.25)",
+              flexDirection: "row",
+              gap: 8,
+            })}
+          >
+            <Ionicons name="mic" size={20} color={Colors.royalBlue} />
+            <Text style={{ color: Colors.royalBlue, fontSize: rfs(15), fontWeight: "bold" }}>
+              Input via Suara (AI)
+            </Text>
+          </Pressable>
+        </View>
 
         {/* Success Modal Overlay */}
         {showSuccess && (

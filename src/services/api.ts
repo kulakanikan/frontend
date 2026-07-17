@@ -276,6 +276,7 @@ export interface ApiBatch {
   diterimaAt: string;
   createdAt: string;
   suppliers?: { namaNelayan: string; telepon: string | null };
+  batchExpenses?: ApiBatchExpense[];
 }
 
 export interface ApiBatchExpense {

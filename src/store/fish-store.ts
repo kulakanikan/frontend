@@ -38,7 +38,11 @@ const mapBatchToStock = (batch: ApiBatch): FishStock => ({
   supplier_name: batch.suppliers?.namaNelayan,
   batch_date: batch.diterimaAt.split("T")[0],
   notes: batch.kondisiKualitas || undefined,
-  addons: [], // We need a way to fetch expenses or just keep it empty initially
+  addons: (batch.batchExpenses || []).map((exp) => ({
+    id: exp.id,
+    name: exp.jenisBiaya,
+    price: Number(exp.jumlah),
+  })),
 });
 
 const mapBuyerToCustomer = (buyer: ApiBuyer): Customer => ({
