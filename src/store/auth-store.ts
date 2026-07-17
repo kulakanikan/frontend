@@ -1,72 +1,141 @@
 /**
  * Auth Store - Zustand
  * Manages authentication state globally.
+ * Connected to Backend API via /auth endpoints.
  */
 import { create } from "zustand";
-
-import type { User, AuthTokens } from "@/src/types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { authApi, profileApi } from "../services/api";
+import type { ApiUser } from "../services/api";
+import { STORAGE_KEYS } from "../constants";
 
 interface AuthState {
-  user: User | null;
-  tokens: AuthTokens | null;
+  user: ApiUser | null;
+  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 
   // Actions
-  setUser: (user: User) => void;
-  setTokens: (tokens: AuthTokens) => void;
-  login: (user: User, tokens: AuthTokens) => void;
-  logout: () => void;
+  setUser: (user: ApiUser) => void;
+  devLogin: () => Promise<void>;
+  googleLogin: (idToken: string) => Promise<void>;
+  logout: () => Promise<void>;
   setLoading: (loading: boolean) => void;
-  updateProfile: (name: string, phone: string, avatar_url?: string) => void;
+  loadStoredAuth: () => Promise<void>;
+  updateProfile: (data: { nama_usaha?: string | null; telepon_usaha?: string | null }) => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: {
-    id: "user-1",
-    name: "Ahmad Samudera",
-    email: "ahmad.samudera@example.com",
-    phone: "081234567890",
-    role: "owner",
-    avatar_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
-    created_at: "2026-01-01",
-  },
-  tokens: null,
-  isAuthenticated: true,
-  isLoading: false,
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: null,
+  token: null,
+  isAuthenticated: false,
+  isLoading: true,
 
   setUser: (user) => set({ user }),
 
-  setTokens: (tokens) => set({ tokens }),
+  /** DEV login — uses hardcoded demo google_sub */
+  devLogin: async () => {
+    set({ isLoading: true });
+    try {
+      const result = await authApi.devLogin("demo_google_sub_12345");
+      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, result.token);
+      set({
+        user: result.user,
+        token: result.token,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch (err) {
+      console.error("Dev login failed:", err);
+      set({ isLoading: false });
+      throw err;
+    }
+  },
 
-  login: (user, tokens) =>
-    set({
-      user,
-      tokens,
-      isAuthenticated: true,
-      isLoading: false,
-    }),
+  /** Google OAuth login */
+  googleLogin: async (idToken: string) => {
+    set({ isLoading: true });
+    try {
+      const result = await authApi.googleLogin(idToken);
+      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, result.token);
+      set({
+        user: result.user,
+        token: result.token,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch (err) {
+      console.error("Google login failed:", err);
+      set({ isLoading: false });
+      throw err;
+    }
+  },
 
-  logout: () =>
+  /** Logout — clear token and state */
+  logout: async () => {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    } catch (_) {}
     set({
       user: null,
-      tokens: null,
+      token: null,
       isAuthenticated: false,
       isLoading: false,
-    }),
+    });
+  },
 
   setLoading: (isLoading) => set({ isLoading }),
 
-  updateProfile: (name, phone, avatar_url) =>
-    set((state) => {
-      if (!state.user) return {};
-      return {
-        user: {
-          ...state.user,
-          name,
-          phone,
-          avatar_url: avatar_url || state.user.avatar_url,
-        },
-      };
-    }),
+  /** Try to restore auth from stored token on app start */
+  loadStoredAuth: async () => {
+    set({ isLoading: true });
+    try {
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      if (!token) {
+        set({ isLoading: false });
+        return;
+      }
+      // Validate the token by calling /auth/me
+      const { user } = await authApi.me();
+      set({
+        user,
+        token,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch (err) {
+      // Token invalid/expired — clear it
+      try {
+        await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      } catch (_) {}
+      set({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+    }
+  },
+
+  /** Update profile on backend and sync local state */
+  updateProfile: async (data) => {
+    try {
+      await profileApi.update(data);
+      // Refresh full profile
+      const profile = await profileApi.get();
+      const currentUser = get().user;
+      if (currentUser) {
+        set({
+          user: {
+            ...currentUser,
+            namaUsaha: profile.nama_usaha,
+            teleponUsaha: profile.telepon_usaha,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Update profile failed:", err);
+      throw err;
+    }
+  },
 }));

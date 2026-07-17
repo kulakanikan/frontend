@@ -54,7 +54,7 @@ export default function ProfileTab() {
             ...Shadow.cardLift,
           }}>
             <Image
-              source={{ uri: user?.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" }}
+              source={{ uri: user?.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" }}
               style={{
                 width: wp(120), height: wp(120), borderRadius: wp(60),
                 borderWidth: 4, borderColor: "#ffffff",
@@ -62,7 +62,7 @@ export default function ProfileTab() {
             />
           </View>
           <Text style={{ color: Colors.textPrimary, fontSize: rfs(24), fontWeight: "900", letterSpacing: 0.5 }}>
-            {user?.name}
+            {user?.nama}
           </Text>
           <View style={{
             backgroundColor: Colors.navy,
@@ -73,7 +73,7 @@ export default function ProfileTab() {
               color: "#ffffff", fontSize: rfs(11),
               fontWeight: "800", textTransform: "uppercase", letterSpacing: 1
             }}>
-              {user?.role || "Staff"}
+              {"Owner"}
             </Text>
           </View>
         </View>
@@ -107,7 +107,7 @@ export default function ProfileTab() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: Colors.textMuted, fontSize: rfs(11), fontWeight: "600", marginBottom: 2 }}>Nomor Telepon</Text>
-              <Text style={{ color: Colors.navy, fontSize: rfs(14), fontWeight: "700" }}>{user?.phone}</Text>
+              <Text style={{ color: Colors.navy, fontSize: rfs(14), fontWeight: "700" }}>{user?.teleponUsaha || "-"}</Text>
             </View>
           </View>
 
