@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated, Easing, useWindowDimensions } from "react-native";
+import { View, Text, StyleSheet, Animated, Easing } from "react-native";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import Svg, { Path, Circle } from "react-native-svg";
 import { fontSize as rfs } from "../src/utils/responsive";
 import FishLogo from "../src/components/FishLogo";
+import { useAuthStore } from "../src/store";
 
 export default function LoadingScreen() {
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -12,8 +12,11 @@ export default function LoadingScreen() {
   const textOpacityAnim = useRef(new Animated.Value(0)).current;
   const textTranslateYAnim = useRef(new Animated.Value(20)).current;
 
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+
   useEffect(() => {
-    // 1. Sequence: Fade in logo, then slide in text
+    // 1. Entrance animation sequence: Fade in logo, then slide in text
     Animated.sequence([
       Animated.parallel([
         Animated.timing(opacityAnim, {
@@ -42,9 +45,14 @@ export default function LoadingScreen() {
         }),
       ]),
     ]).start();
+  }, []);
 
-    const timer = setTimeout(() => {
-      // Fade out both before leaving
+  useEffect(() => {
+    if (isLoading) return;
+
+    let timer: NodeJS.Timeout;
+
+    const navigateAway = () => {
       Animated.parallel([
         Animated.timing(opacityAnim, {
           toValue: 0,
@@ -57,12 +65,24 @@ export default function LoadingScreen() {
           useNativeDriver: true,
         }),
       ]).start(() => {
-        router.replace("/(auth)/login");
+        if (isAuthenticated) {
+          router.replace("/(tabs)");
+        } else {
+          router.replace("/(auth)/login");
+        }
       });
-    }, 2800);
+    };
+
+    if (isAuthenticated) {
+      // If already logged in, navigate away quickly (after a tiny delay so they see the entrance transition)
+      timer = setTimeout(navigateAway, 1000);
+    } else {
+      // If not logged in, wait the standard time so they see the full splash screen
+      timer = setTimeout(navigateAway, 2800);
+    }
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [isLoading, isAuthenticated]);
 
   return (
     <View style={styles.container}>

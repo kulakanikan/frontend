@@ -10,13 +10,24 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useAuthStore } from "../../src/store";
+import { useProfileStore, useAuthStore } from "../../src/store";
 import { Colors, Type, Shadow, SharedStyles } from "../../src/constants/theme";
 import { wp, spacing, fontSize as rfs, radius, iconSize } from "../../src/utils/responsive";
 
 export default function ProfileTab() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const { profile, fetchProfile, isLoading } = useProfileStore();
+
+  React.useEffect(() => {
+    fetchProfile().catch((err) => console.error("Failed to load profile", err));
+  }, [fetchProfile]);
+
+  const displayName = profile?.nama_google || user?.nama || "User";
+  const displayEmail = profile?.email || user?.email || "-";
+  const displayAvatar = profile?.avatar_url || user?.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80";
+  const displayBusinessName = profile?.nama_usaha || "-";
+  const displayPhone = profile?.telepon_usaha || "-";
 
   return (
     <SafeAreaView style={SharedStyles.screen}>
@@ -55,7 +66,7 @@ export default function ProfileTab() {
             ...Shadow.cardLift,
           }}>
             <Image
-              source={{ uri: user?.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" }}
+              source={{ uri: displayAvatar }}
               style={{
                 width: wp(120), height: wp(120), borderRadius: wp(60),
                 borderWidth: 4, borderColor: "#ffffff",
@@ -63,7 +74,7 @@ export default function ProfileTab() {
             />
           </View>
           <Text style={{ color: Colors.textPrimary, fontSize: rfs(24), fontWeight: "900", letterSpacing: 0.5 }}>
-            {user?.nama}
+            {displayName}
           </Text>
           <View style={{
             backgroundColor: Colors.navy,
@@ -97,7 +108,18 @@ export default function ProfileTab() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: Colors.textMuted, fontSize: rfs(11), fontWeight: "600", marginBottom: 2 }}>Email Pribadi</Text>
-              <Text style={{ color: Colors.navy, fontSize: rfs(14), fontWeight: "700" }}>{user?.email}</Text>
+              <Text style={{ color: Colors.navy, fontSize: rfs(14), fontWeight: "700" }}>{displayEmail}</Text>
+            </View>
+          </View>
+
+          {/* Nama Usaha */}
+          <View style={[SharedStyles.row, { paddingVertical: spacing(14), borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.05)" }]}>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.background, alignItems: "center", justifyContent: "center", marginRight: spacing(14) }}>
+              <Ionicons name="business" size={iconSize(16)} color={Colors.royalBlue} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: Colors.textMuted, fontSize: rfs(11), fontWeight: "600", marginBottom: 2 }}>Nama Usaha</Text>
+              <Text style={{ color: Colors.navy, fontSize: rfs(14), fontWeight: "700" }}>{displayBusinessName}</Text>
             </View>
           </View>
 
@@ -108,7 +130,7 @@ export default function ProfileTab() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: Colors.textMuted, fontSize: rfs(11), fontWeight: "600", marginBottom: 2 }}>Nomor Telepon</Text>
-              <Text style={{ color: Colors.navy, fontSize: rfs(14), fontWeight: "700" }}>{user?.teleponUsaha || "-"}</Text>
+              <Text style={{ color: Colors.navy, fontSize: rfs(14), fontWeight: "700" }}>{displayPhone}</Text>
             </View>
           </View>
         </View>
