@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -107,9 +108,9 @@ export default function HomeTab() {
               { icon: "document-text", label: "Nota PDF", action: () => router.push("/buyer-history") },
             ].map((act, i) => (
               <View key={i} style={{ alignItems: "center" }}>
-                <Pressable
+                <TouchableOpacity
                   onPress={act.action}
-                  style={({ pressed }) => ({
+                  style={{
                     width: wp(56),
                     height: wp(56),
                     borderRadius: wp(28),
@@ -117,12 +118,12 @@ export default function HomeTab() {
                     alignItems: "center",
                     justifyContent: "center",
                     marginBottom: spacing(8),
-                    opacity: pressed ? 0.8 : 1,
                     ...Shadow.button,
-                  })}
+                  }}
+                  activeOpacity={0.7}
                 >
                   <Ionicons name={act.icon as any} size={iconSize(24)} color="#ffffff" />
-                </Pressable>
+                </TouchableOpacity>
                 <Text style={{ color: Colors.textPrimary, fontSize: rfs(11), fontWeight: "700" }}>{act.label}</Text>
               </View>
             ))}
