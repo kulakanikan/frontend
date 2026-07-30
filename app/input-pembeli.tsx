@@ -49,6 +49,73 @@ export default function InputPembeliScreen() {
   const [sellPrice, setSellPrice] = useState((params.harga_jual_per_kg as string) || "");
   const [paymentMethod, setPaymentMethod] = useState<"lunas" | "tempo">((params.status_bayar as "lunas" | "tempo") || "lunas");
 
+  // Market Location state
+  const [marketLocation, setMarketLocation] = useState((params.lokasi_pasar as string) || "Pasar Ratu Jepara");
+  const [showMarketModal, setShowMarketModal] = useState(false);
+  const [searchMarketQuery, setSearchMarketQuery] = useState("");
+
+  const availableMarkets = [
+    { id: "m-1", nama: "Pasar Ratu Jepara", alamat: "Jl. Pemuda No. 45, Jepara", jarak: "1.8 km" },
+    { id: "m-2", nama: "PASAR KEPITING JEPARA", alamat: "Kawasan Pelelangan Ikan & Kepiting, Jepara", jarak: "2.1 km" },
+    { id: "m-3", nama: "Pasar Rakyat Jepara 2", alamat: "Jobokuto, Jepara Kota", jarak: "2.5 km" },
+    { id: "m-4", nama: "Pasar Sore Karangrandu (PSK)", alamat: "Karangrandu, Pecangaan, Jepara", jarak: "4.8 km" },
+    { id: "m-5", nama: "Pasar Kalinyamatan", alamat: "Kalinyamatan, Jepara", jarak: "5.5 km" },
+    { id: "m-6", nama: "Pasar Ngabul Baru", alamat: "Jl. Raya Jepara-Kudus, Ngabul", jarak: "6.2 km" },
+    { id: "m-7", nama: "Pasar Duren Ngabul", alamat: "Kawasan Pasar Ngabul, Tahunan", jarak: "6.5 km" },
+    { id: "m-8", nama: "Pasar Durian Ngabul", alamat: "Sentra Durian & Hasil Laut Ngabul", jarak: "6.7 km" },
+    { id: "m-9", nama: "TPI Kedungmalang", alamat: "Kawasan Pelelangan Ikan Kedung", jarak: "4.2 km" },
+    { id: "m-10", nama: "Pasar Welahan Jepara", alamat: "Welahan, Jepara", jarak: "7.1 km" },
+    { id: "m-11", nama: "Pasar Bangsri Jepara", alamat: "Bangsri, Jepara", jarak: "12.0 km" },
+  ];
+
+  const filteredMarketsList = availableMarkets.filter((m) =>
+    m.nama.toLowerCase().includes(searchMarketQuery.toLowerCase()) ||
+    m.alamat.toLowerCase().includes(searchMarketQuery.toLowerCase())
+  );
+
+  // Interactive Map Picker state
+  const [showMapPickerModal, setShowMapPickerModal] = useState(false);
+  const [pickedMarketName, setPickedMarketName] = useState("Pasar Mlonggo Jepara");
+  const [detailAddress, setDetailAddress] = useState("");
+  const [pickedCoords, setPickedCoords] = useState({ lat: -6.521, lng: 110.712 });
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      const handlePickerMessage = (event: MessageEvent) => {
+        if (event.data?.type === "PICKED_LOCATION") {
+          const { lat, lng, name } = event.data;
+          setPickedCoords({ lat: Number(lat), lng: Number(lng) });
+          if (name) {
+            setPickedMarketName(name);
+          } else {
+            if (lat < -6.65) {
+              setPickedMarketName(`Pasar Kedung (${Number(lat).toFixed(3)}, ${Number(lng).toFixed(3)})`);
+            } else if (lat < -6.55) {
+              setPickedMarketName(`Pasar Tahunan (${Number(lat).toFixed(3)}, ${Number(lng).toFixed(3)})`);
+            } else {
+              setPickedMarketName(`Pasar Mlonggo (${Number(lat).toFixed(3)}, ${Number(lng).toFixed(3)})`);
+            }
+          }
+        }
+      };
+      window.addEventListener("message", handlePickerMessage);
+      return () => window.removeEventListener("message", handlePickerMessage);
+    }
+  }, []);
+
+  const handleConfirmMapPicker = () => {
+    const fullLoc = detailAddress.trim()
+      ? `${pickedMarketName} (${detailAddress.trim()})`
+      : pickedMarketName;
+    setMarketLocation(fullLoc);
+    setShowMapPickerModal(false);
+  };
+
+  const handleSelectMarket = (namaPasar: string) => {
+    setMarketLocation(namaPasar);
+    setShowMarketModal(false);
+  };
+
   // Voice AI Modal state
   const [showVoiceModal, setShowVoiceModal] = useState(false);
 
@@ -435,6 +502,42 @@ export default function InputPembeliScreen() {
                   </Text>
                 </Pressable>
               </View>
+            </View>
+
+            {/* Market Location Field */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "600", marginBottom: 8 }}>
+                Lokasi Pasar *
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchMarketQuery("");
+                  setShowMarketModal(true);
+                }}
+                activeOpacity={0.7}
+                style={{
+                  height: 48,
+                  backgroundColor: "#e5eaf7",
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderWidth: errors.marketLocation ? 1 : 0,
+                  borderColor: "#ef4444",
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                  <Ionicons name="location" size={iconSize(18)} color={Colors.navy} />
+                  <Text style={{ color: marketLocation ? "#00072d" : "#64748b", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
+                    {marketLocation || "Pilih Lokasi Pasar"}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-down" size={18} color="#64748b" />
+              </TouchableOpacity>
+              {errors.marketLocation && (
+                <Text style={{ color: "#ef4444", fontSize: 11, marginTop: 4 }}>{errors.marketLocation}</Text>
+              )}
             </View>
 
              {/* Biaya Tambahan / Extras Section */}
@@ -966,7 +1069,403 @@ export default function InputPembeliScreen() {
           </View>
         </Modal>
 
+        {/* MODAL: SELECT MARKET LOCATION */}
+        <Modal visible={showMarketModal} transparent animationType="slide">
+          <View style={{ flex: 1, backgroundColor: "rgba(0, 7, 45, 0.5)", justifyContent: "flex-end" }}>
+            <View style={{
+              height: "75%",
+              backgroundColor: "#ffffff",
+              borderTopLeftRadius: 30,
+              borderTopRightRadius: 30,
+              padding: 20,
+            }}>
+              {/* Header */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <Text style={{ color: "#00072d", fontSize: 18, fontWeight: "bold" }}>Pilih Lokasi Pasar Tujuan</Text>
+                <Pressable onPress={() => setShowMarketModal(false)}>
+                  <Ionicons name="close-circle" size={26} color="#64748b" />
+                </Pressable>
+              </View>
+
+              {/* Button to Open Interactive Map Picker */}
+              <TouchableOpacity
+                onPress={() => {
+                  setShowMarketModal(false);
+                  setShowMapPickerModal(true);
+                }}
+                activeOpacity={0.85}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: Colors.navy,
+                  height: 46,
+                  borderRadius: 14,
+                  marginBottom: 14,
+                  gap: 8,
+                }}
+              >
+                <Ionicons name="map" size={18} color="#ffffff" />
+                <Text style={{ color: "#ffffff", fontWeight: "bold", fontSize: 13.5 }}>
+                  Tandai Lokasi Pasar di Peta
+                </Text>
+              </TouchableOpacity>
+
+              {/* Search Bar */}
+              <View style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "#f0f4f9",
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                height: 42,
+                marginBottom: 16,
+              }}>
+                <Ionicons name="search" size={16} color="#64748b" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={{ flex: 1, height: "100%", color: "#00072d", fontSize: 13 }}
+                  placeholder="Cari pasar atau ketik nama pasar baru..."
+                  placeholderTextColor="#64748b"
+                  value={searchMarketQuery}
+                  onChangeText={setSearchMarketQuery}
+                />
+              </View>
+
+              {/* Custom Location Option if Typed */}
+              {searchMarketQuery.trim().length > 0 && (
+                <TouchableOpacity
+                  onPress={() => handleSelectMarket(searchMarketQuery.trim())}
+                  activeOpacity={0.7}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: "rgba(43, 120, 228, 0.08)",
+                    padding: 12,
+                    borderRadius: 12,
+                    marginBottom: 12,
+                    borderWidth: 1,
+                    borderColor: Colors.royalBlue,
+                  }}
+                >
+                  <Ionicons name="location" size={18} color={Colors.royalBlue} style={{ marginRight: 8 }} />
+                  <Text style={{ color: Colors.royalBlue, fontWeight: "bold", fontSize: 13, flex: 1 }}>
+                    Gunakan lokasi: "{searchMarketQuery.trim()}"
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <FlatList
+                data={filteredMarketsList}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={() => handleSelectMarket(item.nama)}
+                    activeOpacity={0.7}
+                    style={{
+                      paddingVertical: 14,
+                      paddingHorizontal: 6,
+                      borderBottomWidth: 1,
+                      borderBottomColor: "#e5eaf7",
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Ionicons name="location" size={16} color={Colors.navy} />
+                        <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "bold" }}>{item.nama}</Text>
+                      </View>
+                      <Text style={{ color: "#64748b", fontSize: 11, marginTop: 2, marginLeft: 22 }}>
+                        {item.alamat} • {item.jarak}
+                      </Text>
+                    </View>
+                    {marketLocation === item.nama && (
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+                    )}
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </View>
+        </Modal>
+
       </KeyboardAvoidingView>
+
+        {/* MODAL: INTERACTIVE MAP LOCATION PICKER */}
+        <Modal visible={showMapPickerModal} transparent animationType="slide">
+          <View style={{ flex: 1, backgroundColor: "#ffffff", position: "relative" }}>
+            {/* Floating Close Button */}
+            <TouchableOpacity
+              onPress={() => {
+                setShowMapPickerModal(false);
+                setShowMarketModal(true);
+              }}
+              activeOpacity={0.8}
+              style={{
+                position: "absolute",
+                top: 14,
+                left: 14,
+                zIndex: 2000,
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: "#ffffff",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.2,
+                shadowRadius: 4,
+                elevation: 10,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="close" size={22} color={Colors.navy} />
+            </TouchableOpacity>
+
+            {/* Map Area */}
+            <View style={{ flex: 1, position: "relative" }}>
+              {Platform.OS === "web" ? (
+                <iframe
+                  srcDoc={`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+                      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                      <style>
+                        * { box-sizing: border-box; margin: 0; padding: 0; }
+                        html, body, #map { width: 100vw; height: 100vh; margin: 0; padding: 0; overflow: hidden; background: #e5eaf0; font-family: system-ui, -apple-system, sans-serif; }
+                        .leaflet-container { width: 100vw; height: 100vh; }
+                        .map-controls-box {
+                          position: absolute;
+                          top: 14px;
+                          left: 62px;
+                          right: 14px;
+                          z-index: 1000;
+                        }
+                        .search-input {
+                          width: 100%;
+                          height: 40px;
+                          background: #ffffff;
+                          border: 1px solid #cbd5e1;
+                          border-radius: 20px;
+                          padding: 0 14px;
+                          font-size: 13px;
+                          color: #00072d;
+                          box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+                          outline: none;
+                        }
+                        .gps-btn {
+                          position: absolute;
+                          bottom: 20px;
+                          right: 14px;
+                          z-index: 1000;
+                          background: #ffffff;
+                          width: 46px;
+                          height: 46px;
+                          border: 1.5px solid rgba(10, 35, 92, 0.15);
+                          border-radius: 23px;
+                          box-shadow: 0 4px 14px rgba(10,35,92,0.25);
+                          cursor: pointer;
+                          display: flex;
+                          align-items: center;
+                          justify-content: center;
+                        }
+                        .gps-btn:active {
+                          transform: scale(0.92);
+                        }
+                      </style>
+                    </head>
+                    <body>
+                      <div class="map-controls-box">
+                        <input id="search-input" class="search-input" placeholder="Cari pasar..." />
+                      </div>
+
+                      <div id="map"></div>
+
+                      <button class="gps-btn" onclick="locateUserGPS()" title="Lokasi GPS HP Saya">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#0A235C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="7"/>
+                          <line x1="12" y1="2" x2="12" y2="5"/>
+                          <line x1="12" y1="19" x2="12" y2="22"/>
+                          <line x1="2" y1="12" x2="5" y2="12"/>
+                          <line x1="19" y1="12" x2="22" y2="12"/>
+                          <circle cx="12" cy="12" r="2.5" fill="#0A235C"/>
+                        </svg>
+                      </button>
+
+                      <script>
+                        const map = L.map('map', { zoomControl: false }).setView([-6.65, 110.68], 13);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+                        const pushpinIcon = L.divIcon({
+                          className: 'custom-pushpin-icon',
+                          html: '<div style="position:relative;width:34px;height:34px;transform:translate(-50%,-100%);"><svg viewBox="0 0 24 24" width="34" height="34" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35));"><path d="M12 13v9" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="7.5" r="5.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"/><circle cx="10.5" cy="6" r="1.6" fill="#ffffff" opacity="0.7"/></svg></div>',
+                          iconSize: [34, 34],
+                          iconAnchor: [17, 34]
+                        });
+
+                        let marker = L.marker([-6.65, 110.68], { icon: pushpinIcon, draggable: true }).addTo(map);
+
+                        function reverseGeocode(lat, lng) {
+                          fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng)
+                            .then(res => res.json())
+                            .then(data => {
+                              let resolvedName = "Lokasi Peta (" + lat.toFixed(3) + ", " + lng.toFixed(3) + ")";
+                              if (data && data.display_name) {
+                                const parts = data.display_name.split(',');
+                                resolvedName = parts.slice(0, 3).join(',').trim();
+                              }
+                              window.parent.postMessage({ type: 'PICKED_LOCATION', lat: lat, lng: lng, name: resolvedName }, '*');
+                            })
+                            .catch(() => {
+                              window.parent.postMessage({ type: 'PICKED_LOCATION', lat: lat, lng: lng }, '*');
+                            });
+                        }
+
+                        map.on('click', function(e) {
+                          marker.setLatLng(e.latlng);
+                          reverseGeocode(e.latlng.lat, e.latlng.lng);
+                        });
+
+                        marker.on('dragend', function(e) {
+                          const latlng = marker.getLatLng();
+                          reverseGeocode(latlng.lat, latlng.lng);
+                        });
+
+                        function locateUserGPS() {
+                          if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(
+                              function(position) {
+                                const lat = position.coords.latitude;
+                                const lng = position.coords.longitude;
+                                map.setView([lat, lng], 15);
+                                marker.setLatLng([lat, lng]);
+                                reverseGeocode(lat, lng);
+                              },
+                              function(error) {
+                                alert("Akses GPS HP tidak tersedia / mohon izinkan akses lokasi.");
+                              },
+                              { enableHighAccuracy: true }
+                            );
+                          }
+                        }
+
+                        const searchInput = document.getElementById('search-input');
+                        searchInput.addEventListener('keypress', function(e) {
+                          if (e.key === 'Enter') {
+                            const query = searchInput.value.trim();
+                            if (!query) return;
+                            fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query + ' Jepara'))
+                              .then(res => res.json())
+                              .then(data => {
+                                if (data && data.length > 0) {
+                                  const lat = parseFloat(data[0].lat);
+                                  const lon = parseFloat(data[0].lon);
+                                  const displayName = data[0].display_name.split(',')[0];
+                                  map.setView([lat, lon], 15);
+                                  marker.setLatLng([lat, lon]);
+                                  sendLocation(lat, lon, displayName);
+                                } else {
+                                  alert('Pasar "' + query + '" tidak ditemukan.');
+                                }
+                              })
+                              .catch(err => console.error(err));
+                          }
+                        });
+                      </script>
+                    </body>
+                    </html>
+                  `}
+                  style={{ width: "100%", height: "100%", border: "none" } as any}
+                  title="Map Picker"
+                />
+              ) : (
+                <View style={{ flex: 1, backgroundColor: "#E1F0FA", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name="map" size={48} color={Colors.royalBlue} />
+                  <Text style={{ color: Colors.navy, fontWeight: "bold", marginTop: 8 }}>Tandai Lokasi Peta</Text>
+                </View>
+              )}
+
+            </View>
+
+            {/* Bottom Confirmation Card */}
+            <View style={{
+              backgroundColor: "#ffffff",
+              padding: 18,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: -4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 10,
+              elevation: 10,
+            }}>
+              {/* Location Name Field */}
+              <TextInput
+                style={{
+                  height: 44,
+                  backgroundColor: "#e5eaf7",
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  fontSize: 14,
+                  fontWeight: "bold",
+                  color: Colors.navy,
+                  marginBottom: 10,
+                }}
+                value={pickedMarketName}
+                onChangeText={setPickedMarketName}
+                placeholder="Nama Pasar / Lokasi"
+              />
+
+              {/* Multiline Detail Address / Description Textarea Box */}
+              <TextInput
+                style={{
+                  height: 72,
+                  backgroundColor: "#f0f4f9",
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  paddingTop: 10,
+                  paddingBottom: 10,
+                  fontSize: 13,
+                  color: "#00072d",
+                  borderWidth: 1,
+                  borderColor: "#cbd5e1",
+                  textAlignVertical: "top",
+                  marginBottom: 14,
+                }}
+                multiline
+                numberOfLines={3}
+                value={detailAddress}
+                onChangeText={setDetailAddress}
+                placeholder="Detail alamat / patokan (opsional)..."
+                placeholderTextColor="#94a3b8"
+              />
+
+              <TouchableOpacity
+                onPress={handleConfirmMapPicker}
+                activeOpacity={0.85}
+                style={{
+                  backgroundColor: Colors.navy,
+                  height: 46,
+                  borderRadius: 12,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                <Ionicons name="checkmark-circle" size={18} color="#ffffff" />
+                <Text style={{ color: "#ffffff", fontWeight: "bold", fontSize: 13.5 }}>
+                  Gunakan Lokasi Ini
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
       <VoiceInputModal
         visible={showVoiceModal}

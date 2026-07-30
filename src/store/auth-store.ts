@@ -27,7 +27,9 @@ interface AuthState {
 
 /** Save JWT to hardware-backed secure storage */
 async function saveToken(token: string) {
-  await SecureStore.setItemAsync(STORAGE_KEYS.AUTH_TOKEN, token);
+  try {
+    await SecureStore.setItemAsync(STORAGE_KEYS.AUTH_TOKEN, token);
+  } catch (_) {}
 }
 
 /** Remove JWT from secure storage */

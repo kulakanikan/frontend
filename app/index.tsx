@@ -50,7 +50,7 @@ export default function LoadingScreen() {
   useEffect(() => {
     if (isLoading) return;
 
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
 
     const navigateAway = () => {
       Animated.parallel([

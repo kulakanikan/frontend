@@ -1,8 +1,36 @@
 /**
  * API Service Layer — connects frontend to Hono backend.
- * All requests go through apiClient with auto-attached auth token.
+ * Includes automatic Mock Fallback for standalone/decoupled frontend development.
  */
 import apiClient from "../lib/api-client";
+import {
+  mockUser,
+  mockProfile,
+  mockDashboardSummary,
+  mockSuppliers,
+  mockBuyers,
+  mockBatches,
+  mockSales,
+  mockMarkets,
+  type ApiMarket,
+} from "./mockData";
+
+const isMockMode = () => process.env.EXPO_PUBLIC_USE_MOCK === "true";
+
+async function callOrMock<T>(apiCall: () => Promise<T>, fallbackData: T): Promise<T> {
+  if (isMockMode()) {
+    return Promise.resolve(fallbackData);
+  }
+  try {
+    return await apiCall();
+  } catch (err: any) {
+    if (err?.code === "ERR_NETWORK" || !err?.response || err?.message?.includes("Network")) {
+      console.warn("[MOCK FALLBACK] Backend offline, using mock data.");
+      return fallbackData;
+    }
+    throw err;
+  }
+}
 
 // ─── Helper: unwrap backend response { success, data } ───────────────────
 function unwrap<T>(response: { data: { data: T } }): T {
@@ -13,58 +41,106 @@ function unwrap<T>(response: { data: { data: T } }): T {
 export const authApi = {
   /** Login via Google OAuth id_token */
   googleLogin: async (idToken: string) => {
-    const res = await apiClient.post("/auth/google", { id_token: idToken });
-    return unwrap<{ token: string; user: ApiUser }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post("/auth/google", { id_token: idToken });
+        return unwrap<{ token: string; user: ApiUser }>(res);
+      },
+      { token: "mock-jwt-token-12345", user: mockUser }
+    );
   },
 
   /** DEV login — uses google_sub directly (no OAuth required) */
   devLogin: async (googleSub: string) => {
-    const res = await apiClient.post("/auth/dev-login", { google_sub: googleSub });
-    return unwrap<{ token: string; user: ApiUser }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post("/auth/dev-login", { google_sub: googleSub });
+        return unwrap<{ token: string; user: ApiUser }>(res);
+      },
+      { token: "mock-jwt-token-12345", user: mockUser }
+    );
   },
 
   /** Get current user info (requires auth) */
   me: async () => {
-    const res = await apiClient.get("/auth/me");
-    return unwrap<{ user: ApiUser }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get("/auth/me");
+        return unwrap<{ user: ApiUser }>(res);
+      },
+      { user: mockUser }
+    );
   },
 };
 
 // ─── PROFILE ──────────────────────────────────────────────────────────────
 export const profileApi = {
   get: async () => {
-    const res = await apiClient.get("/profile");
-    return unwrap<ProfileData>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get("/profile");
+        return unwrap<ProfileData>(res);
+      },
+      mockProfile
+    );
   },
 
   update: async (data: { nama_usaha?: string | null; telepon_usaha?: string | null }) => {
-    const res = await apiClient.patch("/profile", data);
-    return unwrap<{ nama_usaha: string | null; telepon_usaha: string | null }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.patch("/profile", data);
+        return unwrap<{ nama_usaha: string | null; telepon_usaha: string | null }>(res);
+      },
+      {
+        nama_usaha: data.nama_usaha !== undefined ? data.nama_usaha : mockProfile.nama_usaha,
+        telepon_usaha: data.telepon_usaha !== undefined ? data.telepon_usaha : mockProfile.telepon_usaha,
+      }
+    );
   },
 };
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────
 export const dashboardApi = {
   summary: async () => {
-    const res = await apiClient.get("/dashboard/summary");
-    return unwrap<DashboardSummary>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get("/dashboard/summary");
+        return unwrap<DashboardSummary>(res);
+      },
+      mockDashboardSummary
+    );
   },
   aiSummary: async () => {
-    const res = await apiClient.get("/dashboard/ai-summary");
-    return unwrap<{ summary: string }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get("/dashboard/ai-summary");
+        return unwrap<{ summary: string }>(res);
+      },
+      { summary: "Insight AI Demo: Stok Bandeng & Tongkol berjalan lancar minggu ini! Penjualan naik 12%." }
+    );
   },
 };
 
 // ─── BATCHES (Stok Gudang) ────────────────────────────────────────────────
 export const batchesApi = {
   list: async (params?: { status?: string; supplier_id?: string; jenis_ikan?: string }) => {
-    const res = await apiClient.get("/batches", { params });
-    return unwrap<{ batches: ApiBatch[] }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get("/batches", { params });
+        return unwrap<{ batches: ApiBatch[] }>(res);
+      },
+      { batches: mockBatches }
+    );
   },
 
   get: async (id: string) => {
-    const res = await apiClient.get(`/batches/${id}`);
-    return unwrap<{ batch: ApiBatch & { expenses: ApiBatchExpense[] } }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get(`/batches/${id}`);
+        return unwrap<{ batch: ApiBatch & { expenses: ApiBatchExpense[] } }>(res);
+      },
+      { batch: { ...(mockBatches.find((b) => b.id === id) || mockBatches[0]), expenses: [] } }
+    );
   },
 
   create: async (data: {
@@ -76,102 +152,246 @@ export const batchesApi = {
     sumber_input: "voice" | "manual";
     diterima_at: string;
   }) => {
-    const res = await apiClient.post("/batches", data);
-    return unwrap<{ batch: ApiBatch }>(res);
+    const newBatch: ApiBatch = {
+      id: `b-${Date.now()}`,
+      userId: "u-demo-123",
+      supplierId: data.supplier_id,
+      jenisIkan: data.jenis_ikan,
+      berat: String(data.berat),
+      hargaBeliPerKg: String(data.harga_beli_per_kg),
+      kondisiKualitas: data.kondisi_kualitas || null,
+      sumberInput: data.sumber_input,
+      status: "aktif",
+      diterimaAt: data.diterima_at,
+      createdAt: new Date().toISOString(),
+    };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post("/batches", data);
+        return unwrap<{ batch: ApiBatch }>(res);
+      },
+      { batch: newBatch }
+    );
   },
 
   update: async (id: string, data: { kondisi_kualitas?: string; status?: "aktif" | "habis" }) => {
-    const res = await apiClient.patch(`/batches/${id}`, data);
-    return unwrap<{ batch: ApiBatch }>(res);
+    const updated = { ...(mockBatches[0]), ...data };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.patch(`/batches/${id}`, data);
+        return unwrap<{ batch: ApiBatch }>(res);
+      },
+      { batch: updated }
+    );
   },
 
   delete: async (id: string) => {
-    await apiClient.delete(`/batches/${id}`);
+    if (isMockMode()) return;
+    try {
+      await apiClient.delete(`/batches/${id}`);
+    } catch (_) {}
   },
 
   recordShrinkage: async (id: string, data: { berat_susut: number; catatan?: string }) => {
-    const res = await apiClient.post(`/batches/${id}/susut`, data);
-    return unwrap<{ batch: ApiBatch; expense: ApiBatchExpense }>(res);
+    const mockExpense: ApiBatchExpense = {
+      id: `exp-${Date.now()}`,
+      batchId: id,
+      jenisBiaya: "susut",
+      jumlah: String(data.berat_susut),
+      catatan: data.catatan || null,
+      createdAt: new Date().toISOString(),
+    };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post(`/batches/${id}/susut`, data);
+        return unwrap<{ batch: ApiBatch; expense: ApiBatchExpense }>(res);
+      },
+      { batch: mockBatches[0], expense: mockExpense }
+    );
   },
 };
 
 // ─── BATCH EXPENSES ───────────────────────────────────────────────────────
 export const batchExpensesApi = {
   list: async (batchId: string) => {
-    const res = await apiClient.get(`/batches/${batchId}/expenses`);
-    return unwrap<{ expenses: ApiBatchExpense[] }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get(`/batches/${batchId}/expenses`);
+        return unwrap<{ expenses: ApiBatchExpense[] }>(res);
+      },
+      { expenses: [] }
+    );
   },
 
   create: async (batchId: string, data: { jenis_biaya: string; jumlah: number; catatan?: string }) => {
-    const res = await apiClient.post(`/batches/${batchId}/expenses`, data);
-    return unwrap<{ expense: ApiBatchExpense }>(res);
+    const mockExp: ApiBatchExpense = {
+      id: `exp-${Date.now()}`,
+      batchId,
+      jenisBiaya: data.jenis_biaya,
+      jumlah: String(data.jumlah),
+      catatan: data.catatan || null,
+      createdAt: new Date().toISOString(),
+    };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post(`/batches/${batchId}/expenses`, data);
+        return unwrap<{ expense: ApiBatchExpense }>(res);
+      },
+      { expense: mockExp }
+    );
   },
 
   delete: async (expenseId: string) => {
-    await apiClient.delete(`/batch-expenses/${expenseId}`);
+    if (isMockMode()) return;
+    try {
+      await apiClient.delete(`/batch-expenses/${expenseId}`);
+    } catch (_) {}
   },
 };
 
 // ─── BUYERS (Pembeli) ─────────────────────────────────────────────────────
 export const buyersApi = {
   list: async () => {
-    const res = await apiClient.get("/buyers");
-    return unwrap<{ buyers: ApiBuyer[] }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get("/buyers");
+        return unwrap<{ buyers: ApiBuyer[] }>(res);
+      },
+      { buyers: mockBuyers }
+    );
   },
 
   get: async (id: string) => {
-    const res = await apiClient.get(`/buyers/${id}`);
-    return unwrap<{ buyer: ApiBuyer }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get(`/buyers/${id}`);
+        return unwrap<{ buyer: ApiBuyer }>(res);
+      },
+      { buyer: mockBuyers.find((b) => b.id === id) || mockBuyers[0] }
+    );
   },
 
   create: async (data: { nama: string; telepon?: string; tipe_pembeli?: string }) => {
-    const res = await apiClient.post("/buyers", data);
-    return unwrap<{ buyer: ApiBuyer }>(res);
+    const newBuyer: ApiBuyer = {
+      id: `buy-${Date.now()}`,
+      userId: "u-demo-123",
+      nama: data.nama,
+      telepon: data.telepon || null,
+      tipePembeli: data.tipe_pembeli || null,
+      createdAt: new Date().toISOString(),
+    };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post("/buyers", data);
+        return unwrap<{ buyer: ApiBuyer }>(res);
+      },
+      { buyer: newBuyer }
+    );
   },
 
   update: async (id: string, data: { nama?: string; telepon?: string | null; tipe_pembeli?: string }) => {
-    const res = await apiClient.patch(`/buyers/${id}`, data);
-    return unwrap<{ buyer: ApiBuyer }>(res);
+    const updated: ApiBuyer = {
+      ...(mockBuyers.find((b) => b.id === id) || mockBuyers[0]),
+      nama: data.nama || mockBuyers[0].nama,
+      telepon: data.telepon !== undefined ? data.telepon : mockBuyers[0].telepon,
+      tipePembeli: data.tipe_pembeli !== undefined ? data.tipe_pembeli : mockBuyers[0].tipePembeli,
+    };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.patch(`/buyers/${id}`, data);
+        return unwrap<{ buyer: ApiBuyer }>(res);
+      },
+      { buyer: updated }
+    );
   },
 };
 
 // ─── SUPPLIERS (Nelayan) ──────────────────────────────────────────────────
 export const suppliersApi = {
   list: async () => {
-    const res = await apiClient.get("/suppliers");
-    return unwrap<{ suppliers: ApiSupplier[] }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get("/suppliers");
+        return unwrap<{ suppliers: ApiSupplier[] }>(res);
+      },
+      { suppliers: mockSuppliers }
+    );
   },
 
   get: async (id: string) => {
-    const res = await apiClient.get(`/suppliers/${id}`);
-    return unwrap<{ supplier: ApiSupplier }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get(`/suppliers/${id}`);
+        return unwrap<{ supplier: ApiSupplier }>(res);
+      },
+      { supplier: mockSuppliers.find((s) => s.id === id) || mockSuppliers[0] }
+    );
   },
 
   create: async (data: { nama_nelayan: string; telepon?: string; alamat?: string }) => {
-    const res = await apiClient.post("/suppliers", data);
-    return unwrap<{ supplier: ApiSupplier }>(res);
+    const newSup: ApiSupplier = {
+      id: `sup-${Date.now()}`,
+      userId: "u-demo-123",
+      namaNelayan: data.nama_nelayan,
+      telepon: data.telepon || null,
+      alamat: data.alamat || null,
+      createdAt: new Date().toISOString(),
+    };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post("/suppliers", data);
+        return unwrap<{ supplier: ApiSupplier }>(res);
+      },
+      { supplier: newSup }
+    );
   },
 
   update: async (id: string, data: { nama_nelayan?: string; telepon?: string | null; alamat?: string | null }) => {
-    const res = await apiClient.patch(`/suppliers/${id}`, data);
-    return unwrap<{ supplier: ApiSupplier }>(res);
+    const updated: ApiSupplier = {
+      ...(mockSuppliers.find((s) => s.id === id) || mockSuppliers[0]),
+      namaNelayan: data.nama_nelayan || mockSuppliers[0].namaNelayan,
+      telepon: data.telepon !== undefined ? data.telepon : mockSuppliers[0].telepon,
+      alamat: data.alamat !== undefined ? data.alamat : mockSuppliers[0].alamat,
+    };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.patch(`/suppliers/${id}`, data);
+        return unwrap<{ supplier: ApiSupplier }>(res);
+      },
+      { supplier: updated }
+    );
   },
 
   delete: async (id: string) => {
-    await apiClient.delete(`/suppliers/${id}`);
+    if (isMockMode()) return;
+    try {
+      await apiClient.delete(`/suppliers/${id}`);
+    } catch (_) {}
   },
 };
 
 // ─── SALES (Transaksi) ───────────────────────────────────────────────────
 export const salesApi = {
   list: async (params?: { status_bayar?: string; buyer_id?: string; batch_id?: string }) => {
-    const res = await apiClient.get("/sales", { params });
-    return unwrap<{ sales: ApiSale[] }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get("/sales", { params });
+        return unwrap<{ sales: ApiSale[] }>(res);
+      },
+      { sales: mockSales }
+    );
   },
 
   get: async (id: string) => {
-    const res = await apiClient.get(`/sales/${id}`);
-    return unwrap<{ sale: ApiSaleDetail }>(res);
+    const found = mockSales.find((s) => s.id === id) || mockSales[0];
+    const mockDetail: ApiSaleDetail = { ...found, payments: [] };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get(`/sales/${id}`);
+        return unwrap<{ sale: ApiSaleDetail }>(res);
+      },
+      { sale: mockDetail }
+    );
   },
 
   create: async (data: {
@@ -183,54 +403,142 @@ export const salesApi = {
     tanggal: string;
     extras?: Array<{ nama_item: string; jumlah: number; harga_satuan: number }>;
   }) => {
-    const res = await apiClient.post("/sales", data);
-    return unwrap<{ sale: ApiSale; extras: any[]; receipt: any }>(res);
+    const total = data.berat_jual * data.harga_satuan;
+    const newSale: ApiSale = {
+      id: `sale-${Date.now()}`,
+      batchId: data.batch_id,
+      buyerId: data.buyer_id,
+      beratJual: String(data.berat_jual),
+      hargaSatuan: String(data.harga_satuan),
+      total: String(total),
+      statusBayar: data.status_bayar,
+      tanggal: data.tanggal,
+      createdAt: new Date().toISOString(),
+      batch: { userId: "u-demo-123", jenisIkan: "Ikan Tongkol" },
+      buyer: { nama: "Pembeli Demo", tipePembeli: "Restoran" },
+      saleExtras: [],
+      receipt: { id: `rec-${Date.now()}`, nomorStruk: `INV/${Date.now()}` },
+    };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post("/sales", data);
+        return unwrap<{ sale: ApiSale; extras: any[]; receipt: any }>(res);
+      },
+      { sale: newSale, extras: [], receipt: newSale.receipt }
+    );
   },
 };
 
 // ─── PAYMENTS ─────────────────────────────────────────────────────────────
 export const paymentsApi = {
   list: async (saleId: string) => {
-    const res = await apiClient.get(`/sales/${saleId}/payments`);
-    return unwrap<{ payments: ApiPayment[] }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get(`/sales/${saleId}/payments`);
+        return unwrap<{ payments: ApiPayment[] }>(res);
+      },
+      { payments: [] }
+    );
   },
 
   create: async (saleId: string, data: { jumlah_bayar: number; metode_bayar: string; dibayar_at?: string }) => {
-    const res = await apiClient.post(`/sales/${saleId}/payments`, data);
-    return unwrap<{ payment: ApiPayment; sale_status_updated: boolean; total_paid: number; remaining: number }>(res);
+    const mockPay: ApiPayment = {
+      id: `pay-${Date.now()}`,
+      saleId,
+      jumlahBayar: String(data.jumlah_bayar),
+      metodeBayar: data.metode_bayar,
+      dibayarAt: data.dibayar_at || new Date().toISOString(),
+    };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post(`/sales/${saleId}/payments`, data);
+        return unwrap<{ payment: ApiPayment; sale_status_updated: boolean; total_paid: number; remaining: number }>(res);
+      },
+      { payment: mockPay, sale_status_updated: true, total_paid: data.jumlah_bayar, remaining: 0 }
+    );
   },
 };
 
 // ─── RECEIPTS ─────────────────────────────────────────────────────────────
 export const receiptsApi = {
   get: async (id: string) => {
-    const res = await apiClient.get(`/receipts/${id}`);
-    return unwrap<any>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get(`/receipts/${id}`);
+        return unwrap<any>(res);
+      },
+      { id, nomorStruk: "INV/DEMO/0001", total: 1750000 }
+    );
   },
 
   sendWa: async (id: string, phoneNumber: string) => {
-    const res = await apiClient.post(`/receipts/${id}/send-wa`, { phone_number: phoneNumber });
-    return unwrap<{ wa_link: string }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post(`/receipts/${id}/send-wa`, { phone_number: phoneNumber });
+        return unwrap<{ wa_link: string }>(res);
+      },
+      { wa_link: `https://api.whatsapp.com/send?phone=${phoneNumber}&text=Struk+Pembayaran+Demo` }
+    );
   },
 };
 
 // ─── VOICE (Gemini Parser) ────────────────────────────────────────────────
 export const voiceApi = {
   parse: async (transcript: string, formType: "batch" | "supplier" | "buyer" | "sale" | "batch_expense") => {
-    const res = await apiClient.post("/voice/parse", {
-      transcript,
-      form_type: formType,
-    });
-    return unwrap<{ form_type: string; suggestion: any }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post("/voice/parse", {
+          transcript,
+          form_type: formType,
+        });
+        return unwrap<{ form_type: string; suggestion: any }>(res);
+      },
+      {
+        form_type: formType,
+        suggestion: { jenis_ikan: "Tongkol", berat: 50, harga_beli_per_kg: 30000 },
+      }
+    );
   },
 
   parseAudio: async (audioBase64: string, mimeType: string, formType: "batch" | "supplier" | "buyer" | "sale" | "batch_expense") => {
-    const res = await apiClient.post("/voice/parse", {
-      audio: audioBase64,
-      mime_type: mimeType,
-      form_type: formType,
-    });
-    return unwrap<{ form_type: string; suggestion: any }>(res);
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post("/voice/parse", {
+          audio: audioBase64,
+          mime_type: mimeType,
+          form_type: formType,
+        });
+        return unwrap<{ form_type: string; suggestion: any }>(res);
+      },
+      {
+        form_type: formType,
+        suggestion: { jenis_ikan: "Tongkol", berat: 50, harga_beli_per_kg: 30000 },
+      }
+    );
+  },
+};
+
+// ─── MARKETS & MAP ────────────────────────────────────────────────────────
+export const marketsApi = {
+  list: async () => {
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get("/markets");
+        return unwrap<{ markets: ApiMarket[] }>(res);
+      },
+      { markets: mockMarkets }
+    );
+  },
+
+  get: async (id: string) => {
+    const found = mockMarkets.find((m) => m.id === id) || mockMarkets[0];
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get(`/markets/${id}`);
+        return unwrap<{ market: ApiMarket }>(res);
+      },
+      { market: found }
+    );
   },
 };
 

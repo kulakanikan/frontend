@@ -189,7 +189,7 @@ export default function StockTab() {
         </View>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing(100) }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         
         {/* Big Card Overview */}
         <View style={{ paddingHorizontal: spacing(16) }}>
@@ -237,6 +237,8 @@ export default function StockTab() {
           borderTopLeftRadius: radius(32),
           borderTopRightRadius: radius(32),
           padding: spacing(24),
+          paddingBottom: spacing(120),
+          flex: 1,
           minHeight: hp(500),
         }}>
           <View style={{ alignItems: "center", marginBottom: spacing(16) }}>

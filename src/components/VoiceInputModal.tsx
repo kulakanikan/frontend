@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.15)",
     padding: spacing(24),
     position: "relative",
-    ...Shadow.primary,
+    ...Shadow.button,
   },
   closeBtn: {
     position: "absolute",
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.royalBlue,
     alignItems: "center",
     justifyContent: "center",
-    ...Shadow.primary,
+    ...Shadow.button,
   },
   timer: {
     color: "#ef4444",

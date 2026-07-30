@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#2563eb",
     alignItems: "center",
     justifyContent: "center",
-    ...Shadow.primary,
+    ...Shadow.button,
   },
   micInstructions: {
     color: "#94a3b8",
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: spacing(28),
-    ...Shadow.primary,
+    ...Shadow.button,
   },
   processBtnDisabled: {
     backgroundColor: "rgba(255, 255, 255, 0.15)",

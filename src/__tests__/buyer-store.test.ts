@@ -1,10 +1,12 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test";
+import type { ApiBuyer } from "../services/api";
 
-const mockBuyer = {
+const mockBuyer: ApiBuyer = {
   id: "b-1",
+  userId: "u-1",
   nama: "Pak Budi",
   telepon: "0812345678",
-  alamat: "Sunda Kelapa",
+  tipePembeli: "Restoran",
   createdAt: "2026-07-17",
 };
 
@@ -17,7 +19,7 @@ const mockBuyersApi = {
       id: "b-2",
       nama: data.nama_nelayan || data.nama,
       telepon: data.telepon || null,
-      alamat: data.alamat || null,
+      tipePembeli: data.tipe_pembeli || null,
     },
   })),
   update: mock(async (id: string, data: any) => ({
@@ -58,7 +60,7 @@ describe("buyerStore (Zustand)", () => {
     const created = await useBuyerStore.getState().addBuyer({
       nama: "Pak Roni",
       telepon: "089876543",
-      alamat: "Kalibaru",
+      tipe_pembeli: "Pedagang",
     });
 
     expect(useBuyerStore.getState().buyers.length).toBe(2);

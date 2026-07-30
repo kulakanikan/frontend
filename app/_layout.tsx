@@ -27,8 +27,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup = segments[0] === "(auth)";
-    const isSplash = segments.length === 0 || segments[0] === "index";
+    const segs = segments as string[];
+    const inAuthGroup = segs[0] === "(auth)";
+    const isSplash = segs.length === 0 || segs[0] === "index";
 
     // If NOT authenticated and trying to access a protected page, redirect to login
     if (!isAuthenticated && !inAuthGroup && !isSplash) {

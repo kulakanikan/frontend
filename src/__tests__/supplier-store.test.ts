@@ -1,8 +1,9 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test";
+import type { ApiSupplier } from "../services/api";
 
-const mockSuppliers = [
-  { id: "sup-1", namaNelayan: "Pak Joko", telepon: "0812", alamat: "Depok", createdAt: "2026-07-17" },
-  { id: "sup-2", namaNelayan: "Pak Toro", telepon: "0813", alamat: "Jakarta", createdAt: "2026-07-17" },
+const mockSuppliers: ApiSupplier[] = [
+  { id: "sup-1", userId: "u-1", namaNelayan: "Pak Joko", telepon: "0812", alamat: "Depok", createdAt: "2026-07-17" },
+  { id: "sup-2", userId: "u-1", namaNelayan: "Pak Toro", telepon: "0813", alamat: "Jakarta", createdAt: "2026-07-17" },
 ];
 
 const mockSupplierApi = {
@@ -10,6 +11,7 @@ const mockSupplierApi = {
   create: mock(async (data: { nama_nelayan: string; telepon?: string; alamat?: string }) => ({
     supplier: {
       id: "sup-3",
+      userId: "u-1",
       namaNelayan: data.nama_nelayan,
       telepon: data.telepon || null,
       alamat: data.alamat || null,
@@ -19,6 +21,7 @@ const mockSupplierApi = {
   update: mock(async (id: string, data: any) => ({
     supplier: {
       id,
+      userId: "u-1",
       namaNelayan: data.nama_nelayan || "Pak Joko",
       telepon: data.telepon || "0812",
       alamat: data.alamat || "Depok",

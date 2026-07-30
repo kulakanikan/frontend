@@ -119,7 +119,7 @@ export default function TransactionsTab() {
         </View>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing(100) }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         
         <View style={{ paddingHorizontal: spacing(16) }}>
           {/* Main Income Card */}
@@ -133,9 +133,9 @@ export default function TransactionsTab() {
             <View style={[SharedStyles.row, { justifyContent: "space-between", marginBottom: spacing(32) }]}>
               <View style={[SharedStyles.row, { gap: spacing(12) }]}>
                 <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
-                  <Ionicons name="trending-up" size={iconSize(20)} color="#ffffff" />
+                  <Ionicons name="wallet" size={iconSize(22)} color="#ffffff" />
                 </View>
-                <Text style={{ color: "#ffffff", opacity: 0.9, fontWeight: "700", fontSize: rfs(14) }}>Berhasil Didapatkan</Text>
+                <Text style={{ color: "#ffffff", opacity: 0.9, fontWeight: "700", fontSize: rfs(16) }}>Uang Masuk</Text>
               </View>
             </View>
             <Text style={{ color: "#ffffff", fontSize: rfs(12), opacity: 0.8, marginBottom: 4 }}>Total Uang Masuk Lunas</Text>
@@ -181,6 +181,8 @@ export default function TransactionsTab() {
           borderTopLeftRadius: radius(32),
           borderTopRightRadius: radius(32),
           padding: spacing(24),
+          paddingBottom: spacing(120),
+          flex: 1,
           minHeight: hp(500),
           marginTop: spacing(12),
         }}>
@@ -358,7 +360,7 @@ export default function TransactionsTab() {
 
                 {/* Items & Extras Card */}
                 <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "bold", marginBottom: 10 }}>Rincian Barang</Text>
-                <View style={{ borderBottomWidth: 1, borderBottomColor: "#e5eaf7", pb: 16, marginBottom: 16 }}>
+                <View style={{ borderBottomWidth: 1, borderBottomColor: "#e5eaf7", paddingBottom: 16, marginBottom: 16 }}>
                   <View style={[SharedStyles.row, { justifyContent: "space-between", paddingVertical: 10 }]}>
                     <View>
                       <Text style={{ color: "#00072d", fontWeight: "bold", fontSize: 13 }}>Ikan {saleDetail.batch?.jenisIkan || "Ikan"}</Text>
