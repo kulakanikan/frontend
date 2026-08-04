@@ -12,7 +12,7 @@ import {
   mockBatches,
   mockSales,
   mockMarkets,
-  type ApiMarket,
+  mockDeliverySchedules,
 } from "./mockData";
 
 const isMockMode = () => process.env.EXPO_PUBLIC_USE_MOCK === "true";
@@ -271,13 +271,14 @@ export const buyersApi = {
     );
   },
 
-  create: async (data: { nama: string; telepon?: string; tipe_pembeli?: string }) => {
+  create: async (data: { nama: string; telepon?: string; tipe_pembeli?: string; market_id?: string | null }) => {
     const newBuyer: ApiBuyer = {
       id: `buy-${Date.now()}`,
       userId: "u-demo-123",
       nama: data.nama,
       telepon: data.telepon || null,
       tipePembeli: data.tipe_pembeli || null,
+      marketId: data.market_id || null,
       createdAt: new Date().toISOString(),
     };
     return callOrMock(
@@ -402,12 +403,14 @@ export const salesApi = {
     status_bayar: "lunas" | "tempo";
     tanggal: string;
     extras?: Array<{ nama_item: string; jumlah: number; harga_satuan: number }>;
+    market_id?: string | null;
   }) => {
     const total = data.berat_jual * data.harga_satuan;
     const newSale: ApiSale = {
       id: `sale-${Date.now()}`,
       batchId: data.batch_id,
       buyerId: data.buyer_id,
+      marketId: data.market_id || null,
       beratJual: String(data.berat_jual),
       hargaSatuan: String(data.harga_satuan),
       total: String(total),
@@ -416,6 +419,7 @@ export const salesApi = {
       createdAt: new Date().toISOString(),
       batch: { userId: "u-demo-123", jenisIkan: "Ikan Tongkol" },
       buyer: { nama: "Pembeli Demo", tipePembeli: "Restoran" },
+      market: null,
       saleExtras: [],
       receipt: { id: `rec-${Date.now()}`, nomorStruk: `INV/${Date.now()}` },
     };
@@ -540,6 +544,101 @@ export const marketsApi = {
       { market: found }
     );
   },
+
+  create: async (data: {
+    nama_pasar: string;
+    alamat: string;
+    latitude: number;
+    longitude: number;
+    kategori: "Pasar Tradisional" | "TPI Pelelangan" | "Pusat Restoran";
+  }) => {
+    const newMarket: ApiMarket = {
+      id: `mkt-${Date.now()}`,
+      namaPasar: data.nama_pasar,
+      nama_pasar: data.nama_pasar,
+      alamat: data.alamat,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      kategori: data.kategori,
+      totalBuyers: 0,
+      totalPesanan: 0,
+      buyers: [],
+      pembeliList: [],
+      createdAt: new Date().toISOString(),
+    };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post("/markets", data);
+        return unwrap<{ market: ApiMarket }>(res);
+      },
+      { market: newMarket }
+    );
+  },
+
+  update: async (
+    id: string,
+    data: Partial<{
+      nama_pasar: string;
+      alamat: string;
+      latitude: number;
+      longitude: number;
+      kategori: "Pasar Tradisional" | "TPI Pelelangan" | "Pusat Restoran";
+    }>
+  ) => {
+    const existing = mockMarkets.find((m) => m.id === id) || mockMarkets[0];
+    return callOrMock(
+      async () => {
+        const res = await apiClient.patch(`/markets/${id}`, data);
+        return unwrap<{ market: ApiMarket }>(res);
+      },
+      { market: { ...existing, ...data, namaPasar: data.nama_pasar ?? existing.namaPasar } }
+    );
+  },
+
+  delete: async (id: string) => {
+    if (isMockMode()) return;
+    await apiClient.delete(`/markets/${id}`);
+  },
+};
+
+// ─── DELIVERY SCHEDULES ───────────────────────────────────────────────────
+export const deliverySchedulesApi = {
+  list: async () => {
+    return callOrMock(
+      async () => {
+        const res = await apiClient.get("/delivery-schedules");
+        return unwrap<{ schedules: ApiDeliverySchedule[] }>(res);
+      },
+      { schedules: mockDeliverySchedules }
+    );
+  },
+
+  create: async (saleId: string, data: { scheduled_at: string; catatan?: string }) => {
+    const newSchedule: ApiDeliverySchedule = {
+      id: `sch-${Date.now()}`,
+      saleId,
+      sale_id: saleId,
+      scheduledAt: data.scheduled_at,
+      scheduled_at: data.scheduled_at,
+      catatan: data.catatan || null,
+      createdAt: new Date().toISOString(),
+      sale: null,
+      buyer: null,
+      market: null,
+    };
+    return callOrMock(
+      async () => {
+        const res = await apiClient.post(`/sales/${saleId}/schedules`, data);
+        return unwrap<{ schedule: ApiDeliverySchedule }>(res);
+      },
+      { schedule: newSchedule }
+    );
+  },
+
+  delete: async (id: string) => {
+    if (isMockMode()) return;
+    await apiClient.delete(`/schedules/${id}`);
+  },
 };
 
 // ─── API TYPES ────────────────────────────────────────────────────────────
@@ -606,6 +705,7 @@ export interface ApiBuyer {
   nama: string;
   telepon: string | null;
   tipePembeli: string | null;
+  marketId: string | null;
   createdAt: string;
 }
 
@@ -622,6 +722,7 @@ export interface ApiSale {
   id: string;
   batchId: string;
   buyerId: string;
+  marketId: string | null;
   beratJual: string;
   hargaSatuan: string;
   total: string;
@@ -630,6 +731,7 @@ export interface ApiSale {
   createdAt: string;
   batch: { userId: string; jenisIkan: string } | null;
   buyer: { nama: string; tipePembeli: string | null } | null;
+  market: { id: string; namaPasar: string; alamat: string; latitude: number; longitude: number; kategori: string } | null;
   saleExtras: ApiSaleExtra[];
   receipt: { id: string; nomorStruk: string } | null;
 }
@@ -653,4 +755,68 @@ export interface ApiPayment {
   jumlahBayar: string;
   metodeBayar: string;
   dibayarAt: string;
+}
+
+// ─── MARKETS ─────────────────────────────────────────────────────────────────
+
+export interface ApiMarketBuyer {
+  id: string;
+  nama: string;
+  namaPembeli: string;
+  telepon: string | null;
+  tipePembeli: string | null;
+  marketId: string;
+}
+
+export interface ApiMarket {
+  id: string;
+  userId?: string;
+  namaPasar: string;
+  nama_pasar: string;
+  alamat: string;
+  latitude: number;
+  longitude: number;
+  kategori: "Pasar Tradisional" | "TPI Pelelangan" | "Pusat Restoran";
+  totalBuyers: number;
+  totalPesanan: number;
+  buyers: ApiMarketBuyer[];
+  pembeliList: ApiMarketBuyer[];
+  createdAt: string;
+  // dihitung di frontend via Haversine — tidak dari API:
+  jarakKm?: number;
+}
+
+export interface ApiDeliverySchedule {
+  id: string;
+  saleId: string;
+  sale_id: string;
+  scheduledAt: string;
+  scheduled_at: string;
+  catatan: string | null;
+  createdAt: string;
+  created_at?: string;
+  sale: {
+    id: string;
+    invoice_number: string;
+    berat_jual: number;
+    harga_satuan: number;
+    total: number;
+    status_bayar: "lunas" | "tempo";
+    tanggal: string;
+  } | null;
+  buyer: {
+    id: string;
+    nama: string;
+    telepon: string | null;
+    tipe_pembeli: string | null;
+  } | null;
+  market: {
+    id: string;
+    namaPasar: string;
+    nama_pasar: string;
+    alamat: string;
+    latitude: number;
+    longitude: number;
+    kategori: string;
+  } | null;
 }

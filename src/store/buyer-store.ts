@@ -5,7 +5,7 @@ interface BuyerState {
   buyers: ApiBuyer[];
   isLoading: boolean;
   fetchBuyers: () => Promise<void>;
-  addBuyer: (data: { nama: string; telepon?: string; tipe_pembeli?: string }) => Promise<ApiBuyer>;
+  addBuyer: (data: { nama: string; telepon?: string; tipe_pembeli?: string; market_id?: string | null }) => Promise<ApiBuyer>;
   updateBuyer: (id: string, data: { nama?: string; telepon?: string | null; tipe_pembeli?: string }) => Promise<void>;
 }
 

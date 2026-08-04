@@ -7,6 +7,7 @@ const mockBuyer: ApiBuyer = {
   nama: "Pak Budi",
   telepon: "0812345678",
   tipePembeli: "Restoran",
+  marketId: null,
   createdAt: "2026-07-17",
 };
 

@@ -9,6 +9,7 @@ interface CreateSalePayload {
   status_bayar: "lunas" | "tempo";
   tanggal: string;
   extras?: Array<{ nama_item: string; jumlah: number; harga_satuan: number }>;
+  market_id?: string | null;
 }
 
 interface AddPaymentPayload {

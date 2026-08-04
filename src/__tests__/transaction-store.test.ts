@@ -4,6 +4,7 @@ const mockSale = {
   id: "s-1",
   batchId: "b-1",
   buyerId: "buyer-1",
+  marketId: null,
   beratJual: "30",
   hargaSatuan: "25000",
   total: "750000",
@@ -12,6 +13,7 @@ const mockSale = {
   createdAt: "2026-07-17",
   batch: { userId: "u-1", jenisIkan: "Kembung" },
   buyer: { nama: "Pak Joko", tipePembeli: "pasar" },
+  market: null,
   saleExtras: [],
   receipt: null,
 };

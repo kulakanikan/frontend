@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Linking,
   StyleSheet,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -13,6 +15,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors, Type, Shadow, SharedStyles } from "../src/constants/theme";
 import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../src/utils/responsive";
 import { formatCurrency, formatWeight } from "../src/utils";
+import { useDeliveryStore } from "../src/store";
+import type { ApiDeliverySchedule } from "../src/services/api";
 
 export interface DeliveryReminder {
   id: string;
@@ -33,64 +37,57 @@ export interface DeliveryReminder {
   catatan?: string;
 }
 
+function scheduleToReminder(s: ApiDeliverySchedule): DeliveryReminder {
+  const date = new Date(s.scheduledAt);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const scheduleDay = new Date(date);
+  scheduleDay.setHours(0, 0, 0, 0);
+  const isPast = date < new Date();
+  const isToday = scheduleDay.getTime() === today.getTime();
+
+  return {
+    id: s.id,
+    tanggal: date.toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }),
+    jam: date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB",
+    hari: isPast ? "Selesai" : isToday ? "Hari Ini" : "Mendatang",
+    status: isToday ? "Diantar Hari Ini" : isPast ? "Sudah Diantar" : "Jadwal Mendatang",
+    pasar: s.market?.namaPasar ?? "Pasar Tidak Diketahui",
+    jarak: "",
+    pembeli: s.buyer?.nama ?? "Pembeli Tidak Diketahui",
+    telepon: s.buyer?.telepon ?? "",
+    items: s.sale
+      ? [
+          {
+            jenis: `Pesanan #${s.sale.invoice_number}`,
+            berat: s.sale.berat_jual,
+            harga: s.sale.harga_satuan,
+          },
+        ]
+      : [],
+    totalHarga: s.sale?.total ?? 0,
+    catatan: s.catatan ?? undefined,
+  };
+}
+
 export default function NotificationsScreen() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<"Semua" | "Hari Ini" | "Mendatang">("Semua");
-  const [expandedId, setExpandedId] = useState<string | null>("rem-1");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const reminders: DeliveryReminder[] = [
-    {
-      id: "rem-1",
-      tanggal: "Kamis, 30 Jul 2026",
-      jam: "05:30 WIB",
-      hari: "Hari Ini",
-      status: "Diantar Subuh",
-      pasar: "Pasar Ratu Jepara",
-      jarak: "1.8 km",
-      pembeli: "Bu Sri (Lapak No. 12)",
-      telepon: "085211223344",
-      items: [
-        { jenis: "Tongkol Super", berat: 45, harga: 35000 },
-        { jenis: "Bandeng Tambak", berat: 60, harga: 38000 },
-      ],
-      totalHarga: 3855000,
-      catatan: "Kirim sebelum jam 05:30 subuh.",
-    },
-    {
-      id: "rem-2",
-      tanggal: "Kamis, 30 Jul 2026",
-      jam: "07:00 WIB",
-      hari: "Hari Ini",
-      status: "Pesanan Pagi",
-      pasar: "TPI Kedungmalang",
-      jarak: "4.2 km",
-      pembeli: "Pak Haji Ahmad (Bakul Besar)",
-      telepon: "081399887766",
-      items: [
-        { jenis: "Kakap Merah", berat: 80, harga: 65000 },
-        { jenis: "Tenggiri Super", berat: 35, harga: 75000 },
-      ],
-      totalHarga: 7825000,
-      catatan: "Ditimbang di dermaga TPI.",
-    },
-    {
-      id: "rem-3",
-      tanggal: "Jumat, 31 Jul 2026",
-      jam: "06:00 WIB",
-      hari: "Mendatang",
-      status: "Jadwal Besok",
-      pasar: "Pasar Welahan Jepara",
-      jarak: "7.1 km",
-      pembeli: "Kios Mbak Rahma",
-      telepon: "085712345678",
-      items: [
-        { jenis: "Nila Hitam", berat: 50, harga: 32000 },
-        { jenis: "Layang Basah", berat: 40, harga: 28000 },
-      ],
-      totalHarga: 2720000,
-      catatan: "Sudah bayar DP 50%.",
-    },
-  ];
+  const { schedules, isLoading, fetchSchedules, deleteSchedule } = useDeliveryStore();
+
+  useEffect(() => {
+    fetchSchedules().catch((err) => console.error(err));
+  }, [fetchSchedules]);
+
+  const reminders = schedules.map(scheduleToReminder);
+
 
   const filteredReminders = reminders.filter((rem) => {
     if (selectedTab === "Semua") return true;
@@ -138,150 +135,194 @@ export default function NotificationsScreen() {
       </View>
 
       {/* Accordion List */}
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: spacing(16), paddingBottom: spacing(40) }}
-        showsVerticalScrollIndicator={false}
-      >
-        {filteredReminders.map((rem) => {
-          const isExpanded = expandedId === rem.id;
+      {isLoading && reminders.length === 0 ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator size="large" color={Colors.royalBlue} />
+          <Text style={{ color: Colors.textMuted, marginTop: 8, fontSize: rfs(12) }}>
+            Memuat jadwal pengantaran...
+          </Text>
+        </View>
+      ) : reminders.length === 0 ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing(32) }}>
+          <Ionicons name="calendar-outline" size={48} color={Colors.textMuted} />
+          <Text style={{ color: Colors.textMuted, marginTop: 12, fontSize: rfs(13), textAlign: "center" }}>
+            Belum ada jadwal pengantaran.{"\n"}Buat jadwal dari halaman transaksi.
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: spacing(16), paddingBottom: spacing(40) }}
+          showsVerticalScrollIndicator={false}
+        >
+          {filteredReminders.map((rem) => {
+            const isExpanded = expandedId === rem.id;
 
-          return (
-            <View key={rem.id} style={[styles.card, isExpanded && styles.cardActive]}>
-              {/* Clickable Header Area */}
-              <TouchableOpacity
-                onPress={() => setExpandedId(isExpanded ? null : rem.id)}
-                activeOpacity={0.8}
-                style={{ width: "100%" }}
-              >
-                {/* Row 1: Time & Chevron */}
-                <View style={styles.topRow}>
-                  <View style={styles.timeGroup}>
-                    <Ionicons
-                      name="time"
-                      size={iconSize(17)}
-                      color={rem.hari === "Hari Ini" ? Colors.danger : Colors.royalBlue}
-                    />
-                    <Text style={[styles.timeText, { color: rem.hari === "Hari Ini" ? Colors.danger : Colors.royalBlue }]}>
-                      Jam {rem.jam}
-                    </Text>
-                  </View>
-
-                  <Ionicons
-                    name={isExpanded ? "chevron-up" : "chevron-down"}
-                    size={iconSize(18)}
-                    color={Colors.navy}
-                  />
-                </View>
-
-                {/* Row 2: Destination Market & Recipient */}
-                <View style={{ marginTop: spacing(6), gap: 3 }}>
-                  <View style={[SharedStyles.row, { gap: 5 }]}>
-                    <Ionicons name="location" size={iconSize(15)} color={Colors.navy} />
-                    <Text style={styles.marketTitle} numberOfLines={1}>
-                      {rem.pasar} ({rem.jarak})
-                    </Text>
-                  </View>
-
-                  <View style={[SharedStyles.row, { gap: 5 }]}>
-                    <Ionicons name="person" size={iconSize(13)} color={Colors.textMuted} />
-                    <Text style={styles.summaryText} numberOfLines={1}>
-                      {rem.pembeli} • {rem.items.map((i) => `${i.jenis} ${i.berat}kg`).join(", ")}
-                    </Text>
-                  </View>
-
-                  {/* Small Date at Bottom */}
-                  <View style={[SharedStyles.row, { gap: 5, marginTop: 2 }]}>
-                    <Ionicons name="calendar" size={iconSize(12)} color={Colors.textMuted} />
-                    <Text style={styles.dateSmallText}>
-                      {rem.tanggal}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-
-              {/* Extended Details Box (When Expanded) */}
-              {isExpanded && (
-                <View style={styles.expandedContent}>
-                  {/* Detailed Recipient & Contact */}
-                  <View style={styles.detailRow}>
-                    <View style={[SharedStyles.row, { gap: 5 }]}>
-                      <Ionicons name="person" size={iconSize(13)} color={Colors.navy} />
-                      <Text style={styles.detailLabel}>Penerima:</Text>
-                    </View>
-                    <Text style={styles.detailValueBold}>{rem.pembeli}</Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <View style={[SharedStyles.row, { gap: 5 }]}>
-                      <Ionicons name="call" size={iconSize(13)} color={Colors.navy} />
-                      <Text style={styles.detailLabel}>No. Telepon:</Text>
-                    </View>
-                    <Text style={styles.detailValue}>{rem.telepon}</Text>
-                  </View>
-
-                  {/* Fish Items Table */}
-                  <View style={styles.fishBox}>
-                    <View style={[SharedStyles.row, { gap: 5, marginBottom: 6 }]}>
-                      <Ionicons name="fish" size={iconSize(14)} color={Colors.navy} />
-                      <Text style={{ color: Colors.textMuted, fontSize: rfs(11), fontWeight: "700" }}>
-                        RINCIAN PESANAN IKAN:
+            return (
+              <View key={rem.id} style={[styles.card, isExpanded && styles.cardActive]}>
+                {/* Clickable Header Area */}
+                <TouchableOpacity
+                  onPress={() => setExpandedId(isExpanded ? null : rem.id)}
+                  activeOpacity={0.8}
+                  style={{ width: "100%" }}
+                >
+                  {/* Row 1: Time & Chevron */}
+                  <View style={styles.topRow}>
+                    <View style={styles.timeGroup}>
+                      <Ionicons
+                        name="time"
+                        size={iconSize(17)}
+                        color={rem.hari === "Hari Ini" ? Colors.danger : Colors.royalBlue}
+                      />
+                      <Text style={[styles.timeText, { color: rem.hari === "Hari Ini" ? Colors.danger : Colors.royalBlue }]}>
+                        Jam {rem.jam}
                       </Text>
                     </View>
-                    {rem.items.map((item, i) => (
-                      <View key={i} style={[SharedStyles.row, { justifyContent: "space-between", paddingVertical: 3 }]}>
-                        <Text style={{ color: Colors.textPrimary, fontSize: rfs(12.5), fontWeight: "bold" }}>
-                          • {item.jenis} ({formatWeight(item.berat)})
-                        </Text>
-                        <Text style={{ color: Colors.navy, fontSize: rfs(12.5), fontWeight: "800" }}>
-                          {formatCurrency(item.berat * item.harga)}
+
+                    <Ionicons
+                      name={isExpanded ? "chevron-up" : "chevron-down"}
+                      size={iconSize(18)}
+                      color={Colors.navy}
+                    />
+                  </View>
+
+                  {/* Row 2: Destination Market & Recipient */}
+                  <View style={{ marginTop: spacing(6), gap: 3 }}>
+                    <View style={[SharedStyles.row, { gap: 5 }]}>
+                      <Ionicons name="location" size={iconSize(15)} color={Colors.navy} />
+                      <Text style={styles.marketTitle} numberOfLines={1}>
+                        {rem.pasar} {rem.jarak ? `(${rem.jarak})` : ""}
+                      </Text>
+                    </View>
+
+                    <View style={[SharedStyles.row, { gap: 5 }]}>
+                      <Ionicons name="person" size={iconSize(13)} color={Colors.textMuted} />
+                      <Text style={styles.summaryText} numberOfLines={1}>
+                        {rem.pembeli} • {rem.items.map((i) => `${i.jenis} ${i.berat}kg`).join(", ")}
+                      </Text>
+                    </View>
+
+                    {/* Small Date at Bottom */}
+                    <View style={[SharedStyles.row, { gap: 5, marginTop: 2 }]}>
+                      <Ionicons name="calendar" size={iconSize(12)} color={Colors.textMuted} />
+                      <Text style={styles.dateSmallText}>
+                        {rem.tanggal}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Extended Details Box (When Expanded) */}
+                {isExpanded && (
+                  <View style={styles.expandedContent}>
+                    {/* Detailed Recipient & Contact */}
+                    <View style={styles.detailRow}>
+                      <View style={[SharedStyles.row, { gap: 5 }]}>
+                        <Ionicons name="person" size={iconSize(13)} color={Colors.navy} />
+                        <Text style={styles.detailLabel}>Penerima:</Text>
+                      </View>
+                      <Text style={styles.detailValueBold}>{rem.pembeli}</Text>
+                    </View>
+
+                    <View style={styles.detailRow}>
+                      <View style={[SharedStyles.row, { gap: 5 }]}>
+                        <Ionicons name="call" size={iconSize(13)} color={Colors.navy} />
+                        <Text style={styles.detailLabel}>No. Telepon:</Text>
+                      </View>
+                      <Text style={styles.detailValue}>{rem.telepon}</Text>
+                    </View>
+
+                    {/* Fish Items Table */}
+                    <View style={styles.fishBox}>
+                      <View style={[SharedStyles.row, { gap: 5, marginBottom: 6 }]}>
+                        <Ionicons name="fish" size={iconSize(14)} color={Colors.navy} />
+                        <Text style={{ color: Colors.textMuted, fontSize: rfs(11), fontWeight: "700" }}>
+                          RINCIAN PESANAN IKAN:
                         </Text>
                       </View>
-                    ))}
+                      {rem.items.map((item, i) => (
+                        <View key={i} style={[SharedStyles.row, { justifyContent: "space-between", paddingVertical: 3 }]}>
+                          <Text style={{ color: Colors.textPrimary, fontSize: rfs(12.5), fontWeight: "bold" }}>
+                            • {item.jenis} ({formatWeight(item.berat)})
+                          </Text>
+                          <Text style={{ color: Colors.navy, fontSize: rfs(12.5), fontWeight: "800" }}>
+                            {formatCurrency(item.berat * item.harga)}
+                          </Text>
+                        </View>
+                      ))}
 
-                    <View style={styles.totalRow}>
-                      <Text style={{ color: Colors.textPrimary, fontSize: rfs(12), fontWeight: "bold" }}>
-                        Total Tagihan Kulakan:
-                      </Text>
-                      <Text style={{ color: Colors.royalBlue, fontSize: rfs(14), fontWeight: "900" }}>
-                        {formatCurrency(rem.totalHarga)}
-                      </Text>
+                      <View style={styles.totalRow}>
+                        <Text style={{ color: Colors.textPrimary, fontSize: rfs(12), fontWeight: "bold" }}>
+                          Total Tagihan Kulakan:
+                        </Text>
+                        <Text style={{ color: Colors.royalBlue, fontSize: rfs(14), fontWeight: "900" }}>
+                          {formatCurrency(rem.totalHarga)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {rem.catatan && (
+                      <View style={[SharedStyles.row, { gap: 5, marginTop: 4 }]}>
+                        <Ionicons name="document-text" size={iconSize(13)} color={Colors.textMuted} />
+                        <Text style={styles.noteText}>Catatan: "{rem.catatan}"</Text>
+                      </View>
+                    )}
+
+                    {/* Action Buttons */}
+                    <View style={[SharedStyles.row, { gap: 10, marginTop: spacing(12) }]}>
+                      <TouchableOpacity
+                        onPress={() => router.push("/map" as any)}
+                        style={styles.btnMap}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="map" size={iconSize(16)} color="#ffffff" style={{ marginRight: 6 }} />
+                        <Text style={styles.btnText}>Lihat di Peta</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => handleOpenWa(rem)}
+                        style={styles.btnWa}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="logo-whatsapp" size={iconSize(16)} color="#ffffff" style={{ marginRight: 6 }} />
+                        <Text style={styles.btnText}>Hubungi WA</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          Alert.alert(
+                            "Hapus Jadwal",
+                            "Yakin ingin menghapus jadwal pengantaran ini?",
+                            [
+                              { text: "Batal", style: "cancel" },
+                              {
+                                text: "Hapus",
+                                style: "destructive",
+                                onPress: async () => {
+                                  try {
+                                    await deleteSchedule(rem.id);
+                                  } catch {
+                                    Alert.alert("Gagal", "Tidak dapat menghapus jadwal.");
+                                  }
+                                },
+                              },
+                            ]
+                          );
+                        }}
+                        style={[styles.btnMap, { backgroundColor: "#ef4444" }]}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="trash-outline" size={iconSize(16)} color="#ffffff" style={{ marginRight: 6 }} />
+                        <Text style={styles.btnText}>Hapus</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
-
-                  {rem.catatan && (
-                    <View style={[SharedStyles.row, { gap: 5, marginTop: 4 }]}>
-                      <Ionicons name="document-text" size={iconSize(13)} color={Colors.textMuted} />
-                      <Text style={styles.noteText}>Catatan: "{rem.catatan}"</Text>
-                    </View>
-                  )}
-
-                  {/* Action Buttons */}
-                  <View style={[SharedStyles.row, { gap: 10, marginTop: spacing(12) }]}>
-                    <TouchableOpacity
-                      onPress={() => router.push("/map")}
-                      style={styles.btnMap}
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons name="map" size={iconSize(16)} color="#ffffff" style={{ marginRight: 6 }} />
-                      <Text style={styles.btnText}>Lihat di Peta</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => handleOpenWa(rem)}
-                      style={styles.btnWa}
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons name="logo-whatsapp" size={iconSize(16)} color="#ffffff" style={{ marginRight: 6 }} />
-                      <Text style={styles.btnText}>Hubungi WA</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-            </View>
-          );
-        })}
-      </ScrollView>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }

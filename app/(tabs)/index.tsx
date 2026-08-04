@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useFishStore, useAuthStore, useDashboardStore } from "../../src/store";
+import { useFishStore, useAuthStore, useDashboardStore, useDeliveryStore } from "../../src/store";
 import { Colors, Type, Shadow, SharedStyles } from "../../src/constants/theme";
 import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../../src/utils/responsive";
 import { formatCurrency, formatWeight } from "../../src/utils";
@@ -25,6 +25,7 @@ export default function HomeTab() {
   const { user } = useAuthStore();
   const { transactions, fetchAll } = useFishStore();
   const { summary, fetchSummary, isLoading, aiSummary, fetchAiSummary, isLoadingAi } = useDashboardStore();
+  const { schedules, fetchSchedules } = useDeliveryStore();
 
   const [showNotifModal, setShowNotifModal] = useState(false);
 
@@ -85,24 +86,20 @@ export default function HomeTab() {
 
   const menuColumns = [
     {
-      top: { id: "1", icon: "home-outline", label: "Home", route: "/(tabs)" },
+      top: { id: "1", icon: "add-circle-outline", label: "Tambah Stok", route: "/input-barang" },
+      bottom: { id: "2", icon: "boat-outline", label: "Data Nelayan", route: "/suppliers" },
+    },
+    {
+      top: { id: "3", icon: "cube-outline", label: "Gudang", route: "/stock" },
+      bottom: { id: "4", icon: "people-outline", label: "Data Pembeli", route: "/buyers" },
+    },
+    {
+      top: { id: "5", icon: "card-outline", label: "Transaksi", route: "/transactions" },
       bottom: { id: "6", icon: "map-outline", label: "Peta Lokasi", route: "/map" },
     },
     {
-      top: { id: "2", icon: "card-outline", label: "Uang", route: "/transactions" },
-      bottom: { id: "7", icon: "document-text-outline", label: "Riwayat Nota", route: "/buyer-history" },
-    },
-    {
-      top: { id: "3", icon: "add-circle-outline", label: "Tambah Stok", route: "/input-barang" },
-      bottom: { id: "8", icon: "boat-outline", label: "Data Nelayan", route: "/input-pembeli" },
-    },
-    {
-      top: { id: "4", icon: "cube-outline", label: "Gudang", route: "/stock" },
-      bottom: { id: "9", icon: "people-outline", label: "Data Pembeli", route: "/input-pembeli" },
-    },
-    {
-      top: { id: "5", icon: "person-outline", label: "Profile", route: "/profile" },
-      bottom: { id: "10", icon: "mic-outline", label: "Input Suara", route: "/tambah" },
+      top: { id: "7", icon: "document-text-outline", label: "Riwayat Nota", route: "/transactions" },
+      bottom: { id: "8", icon: "calendar-outline", label: "Jadwal Antar", route: "/notifications" },
     },
   ];
 
@@ -119,7 +116,8 @@ export default function HomeTab() {
       fetchSummary().catch((err) => console.error("Failed to load dashboard summary:", err));
       fetchAiSummary().catch((err) => console.error("Failed to load AI summary:", err));
       fetchAll().catch((err) => console.error("Failed to load fish store data:", err));
-    }, [fetchSummary, fetchAiSummary, fetchAll])
+      fetchSchedules().catch((err) => console.error("Failed to load delivery schedules:", err));
+    }, [fetchSummary, fetchAiSummary, fetchAll, fetchSchedules])
   );
 
   // Recent transactions list from local store
@@ -140,7 +138,7 @@ export default function HomeTab() {
         <View style={[SharedStyles.row, { gap: spacing(12) }]}>
           {/* Notification Bell Icon disamping kiri Profile Avatar */}
           <TouchableOpacity
-            onPress={() => router.push("/notifications")}
+            onPress={() => router.push("/notifications" as any)}
             style={{
               width: wp(40),
               height: wp(40),
@@ -156,24 +154,28 @@ export default function HomeTab() {
             activeOpacity={0.8}
           >
             <Ionicons name="notifications-outline" size={iconSize(22)} color={Colors.navy} />
-            {/* Red Badge Counter */}
-            <View
-              style={{
-                position: "absolute",
-                top: 2,
-                right: 2,
-                backgroundColor: Colors.danger,
-                width: 16,
-                height: 16,
-                borderRadius: 8,
-                alignItems: "center",
-                justifyContent: "center",
-                borderWidth: 1.5,
-                borderColor: "#ffffff",
-              }}
-            >
-              <Text style={{ color: "#ffffff", fontSize: 9, fontWeight: "bold" }}>2</Text>
-            </View>
+            {/* Dynamic Red Badge Counter */}
+            {schedules.length > 0 && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  right: 2,
+                  backgroundColor: Colors.danger,
+                  width: 16,
+                  height: 16,
+                  borderRadius: 8,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 1.5,
+                  borderColor: "#ffffff",
+                }}
+              >
+                <Text style={{ color: "#ffffff", fontSize: 9, fontWeight: "bold" }}>
+                  {schedules.length > 9 ? "9+" : schedules.length}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           <Pressable onPress={() => router.push("/profile")}>

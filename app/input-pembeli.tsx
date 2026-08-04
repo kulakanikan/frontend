@@ -17,10 +17,12 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { wp, hp, spacing, fontSize as rfs, radius, iconSize } from "../src/utils/responsive";
 import { Colors, Type, Shadow, SharedStyles } from "../src/constants/theme";
-import { useFishStore, useBuyerStore, useTransactionStore } from "../src/store";
+import { useFishStore, useBuyerStore, useTransactionStore, useMarketsStore } from "../src/store";
 import { FishStock } from "../src/types";
 import { formatCurrency, formatWeight } from "../src/utils";
+import { deliverySchedulesApi } from "../src/services/api";
 import VoiceInputModal from "../src/components/VoiceInputModal";
+import GoogleDateTimePickerModal from "../src/components/GoogleDateTimePickerModal";
 
 export default function InputPembeliScreen() {
   const router = useRouter();
@@ -30,6 +32,7 @@ export default function InputPembeliScreen() {
   const { fishStocks, fetchStocks } = useFishStore();
   const { buyers, fetchBuyers, addBuyer } = useBuyerStore();
   const { createSale } = useTransactionStore();
+  const { markets, fetchMarkets } = useMarketsStore();
 
   // Form State Data initialized from route params (supports AI Voice pre-fill)
   const [buyerName, setBuyerName] = useState((params.buyer_name as string) || "");
@@ -50,27 +53,34 @@ export default function InputPembeliScreen() {
   const [paymentMethod, setPaymentMethod] = useState<"lunas" | "tempo">((params.status_bayar as "lunas" | "tempo") || "lunas");
 
   // Market Location state
-  const [marketLocation, setMarketLocation] = useState((params.lokasi_pasar as string) || "Pasar Ratu Jepara");
+  const [selectedMarketName, setSelectedMarketName] = useState((params.lokasi_pasar as string) || "Pasar Ratu Jepara");
+  const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const [showMarketModal, setShowMarketModal] = useState(false);
   const [searchMarketQuery, setSearchMarketQuery] = useState("");
 
-  const availableMarkets = [
-    { id: "m-1", nama: "Pasar Ratu Jepara", alamat: "Jl. Pemuda No. 45, Jepara", jarak: "1.8 km" },
-    { id: "m-2", nama: "PASAR KEPITING JEPARA", alamat: "Kawasan Pelelangan Ikan & Kepiting, Jepara", jarak: "2.1 km" },
-    { id: "m-3", nama: "Pasar Rakyat Jepara 2", alamat: "Jobokuto, Jepara Kota", jarak: "2.5 km" },
-    { id: "m-4", nama: "Pasar Sore Karangrandu (PSK)", alamat: "Karangrandu, Pecangaan, Jepara", jarak: "4.8 km" },
-    { id: "m-5", nama: "Pasar Kalinyamatan", alamat: "Kalinyamatan, Jepara", jarak: "5.5 km" },
-    { id: "m-6", nama: "Pasar Ngabul Baru", alamat: "Jl. Raya Jepara-Kudus, Ngabul", jarak: "6.2 km" },
-    { id: "m-7", nama: "Pasar Duren Ngabul", alamat: "Kawasan Pasar Ngabul, Tahunan", jarak: "6.5 km" },
-    { id: "m-8", nama: "Pasar Durian Ngabul", alamat: "Sentra Durian & Hasil Laut Ngabul", jarak: "6.7 km" },
-    { id: "m-9", nama: "TPI Kedungmalang", alamat: "Kawasan Pelelangan Ikan Kedung", jarak: "4.2 km" },
-    { id: "m-10", nama: "Pasar Welahan Jepara", alamat: "Welahan, Jepara", jarak: "7.1 km" },
-    { id: "m-11", nama: "Pasar Bangsri Jepara", alamat: "Bangsri, Jepara", jarak: "12.0 km" },
-  ];
+  // Delivery Schedule state
+  const getTodayStr = () => new Date().toISOString().split("T")[0];
+  const getTomorrowStr = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split("T")[0];
+  };
+  const getLusaStr = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return d.toISOString().split("T")[0];
+  };
 
-  const filteredMarketsList = availableMarkets.filter((m) =>
-    m.nama.toLowerCase().includes(searchMarketQuery.toLowerCase()) ||
-    m.alamat.toLowerCase().includes(searchMarketQuery.toLowerCase())
+  const [enableDeliverySchedule, setEnableDeliverySchedule] = useState<boolean>(true);
+  const [deliveryDate, setDeliveryDate] = useState<string>(getTodayStr());
+  const [deliveryTime, setDeliveryTime] = useState<string>("05:30");
+  const [deliveryNotes, setDeliveryNotes] = useState<string>("");
+  const [showGooglePicker, setShowGooglePicker] = useState<boolean>(false);
+
+  const filteredMarketsList = markets.filter(
+    (m) =>
+      m.namaPasar.toLowerCase().includes(searchMarketQuery.toLowerCase()) ||
+      m.alamat.toLowerCase().includes(searchMarketQuery.toLowerCase())
   );
 
   // Interactive Map Picker state
@@ -107,12 +117,13 @@ export default function InputPembeliScreen() {
     const fullLoc = detailAddress.trim()
       ? `${pickedMarketName} (${detailAddress.trim()})`
       : pickedMarketName;
-    setMarketLocation(fullLoc);
+    setSelectedMarketName(fullLoc);
     setShowMapPickerModal(false);
   };
 
-  const handleSelectMarket = (namaPasar: string) => {
-    setMarketLocation(namaPasar);
+  const handleSelectMarket = (market: { id: string; namaPasar: string }) => {
+    setSelectedMarketName(market.namaPasar);
+    setSelectedMarketId(market.id);
     setShowMarketModal(false);
   };
 
@@ -154,7 +165,8 @@ export default function InputPembeliScreen() {
   useEffect(() => {
     fetchStocks().catch((err) => console.error(err));
     fetchBuyers().catch((err) => console.error(err));
-  }, [fetchStocks, fetchBuyers]);
+    fetchMarkets().catch((err) => console.error(err));
+  }, [fetchStocks, fetchBuyers, fetchMarkets]);
 
   // Auto-set price if fishName is pre-filled from Voice but price was not parsed
   useEffect(() => {
@@ -210,6 +222,7 @@ export default function InputPembeliScreen() {
         nama: newBuyerName.trim(),
         telepon: newBuyerPhone.trim() || undefined,
         tipe_pembeli: "perorangan",
+        market_id: selectedMarketId,
       });
       setBuyerName(created.nama);
       setShowNewBuyerModal(false);
@@ -256,6 +269,15 @@ export default function InputPembeliScreen() {
       newErrors.quantity = `Stok di gudang tidak mencukupi (Tersedia: ${matchedFish.quantity} Kg)`;
     }
 
+    // Delivery Schedule Validation: If deliveryDate is TODAY, jam/time is REQUIRED
+    if (enableDeliverySchedule) {
+      const todayStr = getTodayStr();
+      const isToday = deliveryDate.trim() === todayStr;
+      if (isToday && !deliveryTime.trim()) {
+        newErrors.deliveryTime = "Jam pengantaran wajib diisi jika tanggal pengiriman adalah hari ini";
+      }
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -275,6 +297,7 @@ export default function InputPembeliScreen() {
         const created = await addBuyer({
           nama: buyerName.trim(),
           tipe_pembeli: "perorangan",
+          market_id: selectedMarketId,
         });
         buyerId = created.id;
       }
@@ -288,19 +311,44 @@ export default function InputPembeliScreen() {
         status_bayar: paymentMethod,
         tanggal: new Date().toISOString(),
         extras: extras,
+        market_id: selectedMarketId,
       });
 
+      // 3. Create delivery schedule if enabled
+      if (enableDeliverySchedule && newSale.id) {
+        try {
+          const targetDateStr = deliveryDate.trim() || getTodayStr();
+          const timeParts = deliveryTime.trim().split(":");
+          const hours = Number(timeParts[0]) || 5;
+          const minutes = Number(timeParts[1]) || 30;
+
+          const schedDate = new Date(targetDateStr);
+          if (isNaN(schedDate.getTime())) {
+            schedDate.setTime(Date.now());
+          }
+          schedDate.setHours(hours, minutes, 0, 0);
+
+          await deliverySchedulesApi.create(newSale.id, {
+            scheduled_at: schedDate.toISOString(),
+            catatan: deliveryNotes.trim() || `Pengantaran ke ${selectedMarketName}`,
+          });
+        } catch (schedErr) {
+          console.warn("Could not save delivery schedule:", schedErr);
+        }
+      }
+
+      // Show success modal and navigate to receipt or transaction history
       setShowSuccess(true);
       timerRef.current = setTimeout(() => {
         setShowSuccess(false);
-        if (newSale.receipt?.id) {
+        if (newSale?.receipt?.id) {
           router.replace(`/receipts/${newSale.receipt.id}`);
         } else {
           router.replace("/transactions");
         }
-      }, 1500);
-    } catch (err) {
-      alert("Gagal menyimpan transaksi");
+      }, 1400);
+    } catch (err: any) {
+      alert(err?.message || "Gagal menyimpan transaksi");
     }
   };
 
@@ -529,8 +577,8 @@ export default function InputPembeliScreen() {
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
                   <Ionicons name="location" size={iconSize(18)} color={Colors.navy} />
-                  <Text style={{ color: marketLocation ? "#00072d" : "#64748b", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
-                    {marketLocation || "Pilih Lokasi Pasar"}
+                  <Text style={{ color: selectedMarketName ? "#00072d" : "#64748b", fontSize: 14, fontWeight: "600" }} numberOfLines={1}>
+                    {selectedMarketName || "Pilih Lokasi Pasar"}
                   </Text>
                 </View>
                 <Ionicons name="chevron-down" size={18} color="#64748b" />
@@ -539,6 +587,95 @@ export default function InputPembeliScreen() {
                 <Text style={{ color: "#ef4444", fontSize: 11, marginTop: 4 }}>{errors.marketLocation}</Text>
               )}
             </View>
+
+            {/* Jam & Jadwal Pengantaran Ke Pasar */}
+            <View style={{ marginBottom: 20, backgroundColor: "#f0f4ff", padding: 14, borderRadius: radius(16), borderWidth: 1, borderColor: "rgba(43, 120, 228, 0.2)" }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="calendar-outline" size={18} color={Colors.royalBlue} />
+                  <Text style={{ color: Colors.navy, fontSize: 14, fontWeight: "bold" }}>
+                    Jadwal & Jam Pengantaran
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setEnableDeliverySchedule(!enableDeliverySchedule)}>
+                  <Ionicons name={enableDeliverySchedule ? "checkbox" : "square-outline"} size={22} color={Colors.navy} />
+                </TouchableOpacity>
+              </View>
+
+              {enableDeliverySchedule && (
+                <View style={{ gap: 12 }}>
+                  <Text style={{ color: Colors.textMuted, fontSize: rfs(11.5) }}>
+                    Pilih tanggal kalender & jam circular ala Google untuk pengingat pengantaran.
+                  </Text>
+
+                  {/* Google Material Picker Trigger Button */}
+                  <TouchableOpacity
+                    onPress={() => setShowGooglePicker(true)}
+                    activeOpacity={0.8}
+                    style={{
+                      backgroundColor: "#ffffff",
+                      borderRadius: radius(12),
+                      padding: 14,
+                      borderWidth: errors.deliveryTime ? 1.5 : 1,
+                      borderColor: errors.deliveryTime ? "#ef4444" : Colors.royalBlue,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <View style={{ gap: 2 }}>
+                      <Text style={{ fontSize: rfs(11), color: Colors.textMuted, fontWeight: "600" }}>
+                        Tanggal & Jam Terpilih:
+                      </Text>
+                      <Text style={{ fontSize: rfs(13.5), color: Colors.navy, fontWeight: "bold" }}>
+                        📅 {deliveryDate}  ⏰ {deliveryTime} WIB
+                      </Text>
+                    </View>
+                    <View style={{ backgroundColor: "rgba(43, 120, 228, 0.1)", paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius(8) }}>
+                      <Text style={{ color: Colors.royalBlue, fontSize: rfs(11.5), fontWeight: "bold" }}>Ubah</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {errors.deliveryTime && (
+                    <Text style={{ color: "#ef4444", fontSize: 11, marginTop: -4 }}>{errors.deliveryTime}</Text>
+                  )}
+
+                  {/* Optional Notes */}
+                  <View style={{ marginTop: 2 }}>
+                    <Text style={{ color: Colors.navy, fontSize: rfs(12), fontWeight: "600", marginBottom: 6 }}>
+                      Catatan Pengantaran (Opsional)
+                    </Text>
+                    <TextInput
+                      style={{
+                        backgroundColor: "#ffffff",
+                        borderRadius: 10,
+                        paddingHorizontal: 12,
+                        height: 42,
+                        fontSize: rfs(12),
+                        color: Colors.navy,
+                        borderWidth: 1,
+                        borderColor: Colors.divider,
+                      }}
+                      placeholder="Misal: Titip lapak no 12 / WA sebelum sampai"
+                      placeholderTextColor="#94a3b8"
+                      value={deliveryNotes}
+                      onChangeText={setDeliveryNotes}
+                    />
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* GOOGLE MATERIAL DATETIME PICKER MODAL */}
+            <GoogleDateTimePickerModal
+              visible={showGooglePicker}
+              onClose={() => setShowGooglePicker(false)}
+              onConfirm={(dStr, tStr) => {
+                setDeliveryDate(dStr);
+                setDeliveryTime(tStr);
+              }}
+              minimumDate={new Date()}
+            />
 
              {/* Biaya Tambahan / Extras Section */}
             <View style={{ marginBottom: 20, borderTopWidth: 1, borderTopColor: "#e5eaf7", paddingTop: 16 }}>
@@ -1087,29 +1224,7 @@ export default function InputPembeliScreen() {
                 </Pressable>
               </View>
 
-              {/* Button to Open Interactive Map Picker */}
-              <TouchableOpacity
-                onPress={() => {
-                  setShowMarketModal(false);
-                  setShowMapPickerModal(true);
-                }}
-                activeOpacity={0.85}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: Colors.navy,
-                  height: 46,
-                  borderRadius: 14,
-                  marginBottom: 14,
-                  gap: 8,
-                }}
-              >
-                <Ionicons name="map" size={18} color="#ffffff" />
-                <Text style={{ color: "#ffffff", fontWeight: "bold", fontSize: 13.5 }}>
-                  Tandai Lokasi Pasar di Peta
-                </Text>
-              </TouchableOpacity>
+
 
               {/* Search Bar */}
               <View style={{
@@ -1134,7 +1249,7 @@ export default function InputPembeliScreen() {
               {/* Custom Location Option if Typed */}
               {searchMarketQuery.trim().length > 0 && (
                 <TouchableOpacity
-                  onPress={() => handleSelectMarket(searchMarketQuery.trim())}
+                  onPress={() => handleSelectMarket({ id: "", namaPasar: searchMarketQuery.trim() })}
                   activeOpacity={0.7}
                   style={{
                     flexDirection: "row",
@@ -1160,7 +1275,7 @@ export default function InputPembeliScreen() {
                 showsVerticalScrollIndicator={false}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    onPress={() => handleSelectMarket(item.nama)}
+                    onPress={() => handleSelectMarket({ id: item.id, namaPasar: item.namaPasar })}
                     activeOpacity={0.7}
                     style={{
                       paddingVertical: 14,
@@ -1175,13 +1290,13 @@ export default function InputPembeliScreen() {
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                         <Ionicons name="location" size={16} color={Colors.navy} />
-                        <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "bold" }}>{item.nama}</Text>
+                        <Text style={{ color: "#00072d", fontSize: 14, fontWeight: "bold" }}>{item.namaPasar}</Text>
                       </View>
                       <Text style={{ color: "#64748b", fontSize: 11, marginTop: 2, marginLeft: 22 }}>
-                        {item.alamat} • {item.jarak}
+                        {item.alamat} • {item.kategori}
                       </Text>
                     </View>
-                    {marketLocation === item.nama && (
+                    {selectedMarketName === item.namaPasar && (
                       <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
                     )}
                   </TouchableOpacity>

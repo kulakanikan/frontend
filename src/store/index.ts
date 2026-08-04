@@ -5,3 +5,5 @@ export { useDashboardStore } from "./dashboard-store";
 export { useSupplierStore } from "./supplier-store";
 export { useTransactionStore } from "./transaction-store";
 export { useBuyerStore } from "./buyer-store";
+export { useMarketsStore } from "./markets-store";
+export { useDeliveryStore } from "./delivery-store";
