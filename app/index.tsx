@@ -1,16 +1,15 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated, Easing } from "react-native";
+import { View, Text, StyleSheet, Animated, Easing, Image } from "react-native";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { fontSize as rfs } from "../src/utils/responsive";
-import FishLogo from "../src/components/FishLogo";
 import { useAuthStore } from "../src/store";
 
 export default function LoadingScreen() {
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const textOpacityAnim = useRef(new Animated.Value(0)).current;
-  const textTranslateYAnim = useRef(new Animated.Value(20)).current;
+  const textTranslateYAnim = useRef(new Animated.Value(15)).current;
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
@@ -21,7 +20,7 @@ export default function LoadingScreen() {
       Animated.parallel([
         Animated.timing(opacityAnim, {
           toValue: 1,
-          duration: 800,
+          duration: 700,
           useNativeDriver: true,
         }),
         Animated.spring(scaleAnim, {
@@ -34,12 +33,12 @@ export default function LoadingScreen() {
       Animated.parallel([
         Animated.timing(textOpacityAnim, {
           toValue: 1,
-          duration: 600,
+          duration: 500,
           useNativeDriver: true,
         }),
         Animated.timing(textTranslateYAnim, {
           toValue: 0,
-          duration: 600,
+          duration: 500,
           easing: Easing.out(Easing.back(1.5)),
           useNativeDriver: true,
         }),
@@ -74,11 +73,11 @@ export default function LoadingScreen() {
     };
 
     if (isAuthenticated) {
-      // If already logged in, navigate away quickly (after a tiny delay so they see the entrance transition)
+      // If already logged in, navigate away quickly
       timer = setTimeout(navigateAway, 1000);
     } else {
-      // If not logged in, wait the standard time so they see the full splash screen
-      timer = setTimeout(navigateAway, 2800);
+      // If not logged in, show splash animation
+      timer = setTimeout(navigateAway, 2400);
     }
 
     return () => clearTimeout(timer);
@@ -86,7 +85,7 @@ export default function LoadingScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Animated.View
         style={[
           styles.content,
@@ -96,17 +95,21 @@ export default function LoadingScreen() {
           },
         ]}
       >
-        <FishLogo width={160} height={160} color="#ffffff" />
+        <Image
+          source={require("../assets/images/logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </Animated.View>
 
       <Animated.View
         style={{
-          marginTop: 12,
+          marginTop: 16,
           opacity: textOpacityAnim,
           transform: [{ translateY: textTranslateYAnim }],
         }}
       >
-        <Text style={[styles.title, { fontSize: rfs(34) }]}>KULAKAN IKAN</Text>
+        <Text style={[styles.title, { fontSize: rfs(32) }]}>KULAKAN</Text>
       </Animated.View>
     </View>
   );
@@ -115,7 +118,7 @@ export default function LoadingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#051650",
+    backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -123,11 +126,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  logo: {
+    width: 170,
+    height: 170,
+  },
   title: {
-    fontSize: 48,
+    fontSize: 40,
     fontWeight: "900",
-    color: "#ffffff",
-    fontStyle: "italic",
-    letterSpacing: -1,
+    color: "#051650",
+    letterSpacing: 2,
+    textAlign: "center",
   },
 });

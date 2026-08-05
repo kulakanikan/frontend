@@ -51,6 +51,13 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       try {
         await SecureStore.deleteItemAsync(STORAGE_KEYS.AUTH_TOKEN);
+        const { useAuthStore } = require("../store/auth-store");
+        useAuthStore.setState({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
         router.replace("/(auth)/login");
       } catch (_) {}
     }

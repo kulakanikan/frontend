@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useState, useEffect } from "react";
 import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { useAuthStore } from "../../src/store";
 import { GOOGLE_OAUTH } from "../../src/constants";
+import { configureGoogleSignin } from "../../src/lib/google-signin";
 import {
   View,
   Text,
@@ -529,34 +530,63 @@ export default function LoginScreen() {
 
   const handleGoogleLogin = useCallback(async () => {
     setLoginError(null);
+    setIsSigningIn(true);
 
     try {
-      setIsSigningIn(true);
-      await devLogin();
+      if (isDev) {
+        await devLogin();
+        hideSheet();
+        router.replace("/(tabs)");
+        return;
+      }
+
+      // 1. Konfigurasi Google Sign-In SDK
+      configureGoogleSignin();
+
+      // 2. Cek ketersediaan Google Play Services di perangkat
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+      // 3. Tampilkan Google Account Picker / Sign-In Dialog
+      const signInResult = await GoogleSignin.signIn();
+
+      let idToken: string | null = null;
+      if (signInResult && "data" in signInResult && signInResult.data) {
+        idToken = signInResult.data.idToken;
+      } else if (signInResult && "idToken" in signInResult) {
+        idToken = (signInResult as any).idToken;
+      }
+
+      if (!idToken) {
+        throw new Error(
+          "Gagal mendapatkan ID token dari Google. Pastikan SHA-1 Keystore dan Web Client ID sudah terdaftar di Google Cloud Console."
+        );
+      }
+
+      // 4. Kirim idToken ke backend Hono untuk verifikasi dan generate JWT sesi
+      await googleLogin(idToken);
       hideSheet();
       router.replace("/(tabs)");
     } catch (err: any) {
       console.error("Login failed:", err);
-      // Fallback direct set
-      useAuthStore.setState({
-        user: {
-          id: "u-demo-123",
-          nama: "Juragan Ikan",
-          email: "juragan@kulakan.id",
-          avatarUrl: null,
-          namaUsaha: "UD Bahari Jaya",
-          teleponUsaha: "081234567890",
-        },
-        token: "mock-jwt-token-12345",
-        isAuthenticated: true,
-        isLoading: false,
-      });
-      hideSheet();
-      router.replace("/(tabs)");
+
+      if (err?.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User menutup popup Google Sign-In
+        setLoginError(null);
+      } else if (err?.code === statusCodes.IN_PROGRESS) {
+        setLoginError("Proses masuk sedang berjalan...");
+      } else if (err?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        setLoginError("Google Play Services tidak tersedia di perangkat ini.");
+      } else {
+        const errorMsg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Gagal masuk dengan Google. Silakan periksa koneksi internet.";
+        setLoginError(errorMsg);
+      }
     } finally {
       setIsSigningIn(false);
     }
-  }, [hideSheet, devLogin]);
+  }, [hideSheet, isDev, devLogin, googleLogin]);
 
   // Bring onboarding back
   const showOnboarding = useCallback(() => {
